@@ -18,8 +18,10 @@ goland-skin/
 │   └── index.d.ts        # $.state contract for the previous-theme memory
 ├── themes/
 │   └── goland-dark.json  # Claude Code custom theme (56 tokens, base: dark-ansi)
-└── warp/
-    └── goland_dark.yaml  # Warp terminal theme (background, font colors, ANSI palette)
+├── warp/
+│   └── goland_dark.yaml  # Warp terminal theme (background, font colors, ANSI palette)
+└── claude-skins/
+    └── goland.ts         # GoLand as a claude-skins skin (see below)
 ```
 
 `base: "dark-ansi"` means Claude Code's own code highlighting (in replies, diffs) draws from the terminal's 16-color ANSI palette rather than a fixed built-in scheme — so `warp/goland_dark.yaml`'s bright color slots double as GoLand's syntax colors (keywords, strings, types, comments). Install both halves together for the full effect.
@@ -54,6 +56,41 @@ cp goland-skin/warp/goland_dark.yaml   ~/.warp/themes/goland_dark.yaml
    brew install --cask font-jetbrains-mono
    ```
    Then set it in Warp → Settings → Appearance → Text, regular weight, with line height around `1.2`.
+
+## With claude-skins
+
+[claude-skins](https://github.com/hellosverre/claude-skins) redraws tool
+rows, diff cards, tables and charts with its own rendering engine, on top of
+whichever skin is active — richer than Claude Code's own theme tokens above.
+`claude-skins/goland.ts` is GoLand Darcula in its skin format (every color
+in it traces back to a token in `themes/goland-dark.json`, nothing new).
+
+There's no cross-plugin skin registry, so adding it is a manual drop-in once
+claude-skins is installed:
+
+```bash
+# find your installed claude-skins version first
+ls ~/.claude/plugins/cache/*/skins/*/hooks/themes/
+
+# then, with that path:
+cp goland-skin/claude-skins/goland.ts \
+  ~/.claude/plugins/cache/<marketplace>/skins/<version>/hooks/themes/goland.ts
+```
+
+Add one import line to that same directory's `index.ts`:
+
+```ts
+import goland from './goland'
+// ...
+export const SKINS: readonly Skin[] = [
+  noir,
+  goland,
+  // ...
+]
+```
+
+Restart Claude Code, then `/skin goland`. This re-copy is needed again after
+claude-skins updates itself (it overwrites its own cache on update).
 
 ## Palette
 

@@ -7,11 +7,11 @@
   "plugins": [
     {
       "name": "goland-skin",
-      "description": "JetBrains GoLand Darcula colors for Claude Code, plus a matching Warp terminal theme. /goland switches it on live.",
+      "description": "JetBrains GoLand Darcula colors for Claude Code, plus a matching Warp terminal theme and an optional claude-skins skin. /goland switches it on live.",
       "source": "./goland-skin",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "category": "theme",
-      "tags": ["theme", "goland", "darcula", "jetbrains", "dark-theme"]
+      "tags": ["theme", "goland", "darcula", "jetbrains", "dark-theme", "claude-skins"]
     },
     {
       "name": "diagram-preview",
