@@ -32,3 +32,99 @@
  * allowed to proceed, so it never fires for the ask/deny cases that are
  * the ones needing per-agent attribution in the first place.
  */
+
+export type AgentState = 'running' | 'completed' | 'failed' | 'killed'
+
+export type AgentRow = {
+  id: string
+  subagentType: string | null
+  status: AgentState
+  working: boolean
+  lastCheckDecision: 'allow' | 'ask' | 'deny' | null
+  toolCallCount: number
+  spawnedAt: number
+}
+
+export type AgentsState = {
+  rows: AgentRow[]
+}
+
+export type AgentEvent =
+  | { type: 'spawn'; agentId: string; subagentType: string; now: number }
+  | { type: 'toolCallStart'; agentId: string | null; now: number }
+  | { type: 'toolCallEnd'; agentId: string | null }
+  | { type: 'checkDecision'; agentId: string | null; decision: 'allow' | 'ask' | 'deny' }
+  | { type: 'statusSync'; statuses: ReadonlyArray<{ id: string; status: AgentState }> }
+
+function rowId(agentId: string | null): string {
+  return agentId ?? 'main'
+}
+
+function newRow(id: string, subagentType: string | null, now: number): AgentRow {
+  return {
+    id,
+    subagentType,
+    status: 'running',
+    working: false,
+    lastCheckDecision: null,
+    toolCallCount: 0,
+    spawnedAt: now,
+  }
+}
+
+export function emptyState(): AgentsState {
+  return { rows: [newRow('main', null, 0)] }
+}
+
+function updateRow(
+  state: AgentsState,
+  id: string,
+  update: (row: AgentRow) => AgentRow,
+): AgentsState {
+  const index = state.rows.findIndex(row => row.id === id)
+  if (index === -1) return state // unknown agent: ignore, don't throw
+
+  const rows = state.rows.slice()
+  const row = rows[index]
+  if (!row) return state
+  rows[index] = update(row)
+  return { rows }
+}
+
+export function applyEvent(state: AgentsState, event: AgentEvent): AgentsState {
+  switch (event.type) {
+    case 'spawn':
+      return {
+        rows: [...state.rows, newRow(event.agentId, event.subagentType, event.now)],
+      }
+
+    case 'toolCallStart':
+      return updateRow(state, rowId(event.agentId), row => ({
+        ...row,
+        working: true,
+        toolCallCount: row.toolCallCount + 1,
+      }))
+
+    case 'toolCallEnd':
+      return updateRow(state, rowId(event.agentId), row => ({
+        ...row,
+        working: false,
+      }))
+
+    case 'checkDecision':
+      return updateRow(state, rowId(event.agentId), row => ({
+        ...row,
+        lastCheckDecision: event.decision,
+      }))
+
+    case 'statusSync': {
+      const byId = new Map(event.statuses.map(s => [s.id, s.status]))
+      return {
+        rows: state.rows.map(row => {
+          const status = byId.get(row.id)
+          return status ? { ...row, status } : row
+        }),
+      }
+    }
+  }
+}
