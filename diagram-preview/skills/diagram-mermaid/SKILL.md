@@ -1,22 +1,27 @@
 ---
 name: diagram-mermaid
-description: Preview a Mermaid diagram as a full-color rendered image, from pasted source or a file path. Use when the user pastes Mermaid code, points to a .mmd/.md file with a mermaid block, or asks to preview/render/visualize a Mermaid diagram.
+description: Preview a Mermaid diagram inline in the terminal, from pasted source or a file path. Use when the user pastes Mermaid code, points to a .mmd/.md file with a mermaid block, or asks to preview/render/visualize a Mermaid diagram.
 license: MIT
 ---
 
 # diagram-mermaid — Preview a Mermaid diagram
 
 General-purpose utility, not tied to any particular project. Renders Mermaid
-diagram source to a pixel-accurate, full-color PNG with `@mermaid-js/mermaid-cli`
-and opens it in the system image viewer.
+diagram source to a pixel-accurate, full-color PNG with
+`@mermaid-js/mermaid-cli`, then displays it inline using Claude Code's own
+native image rendering (the `Read` tool on an image file) — not by shelling
+out to an OS image viewer, and not by writing raw image-protocol escape
+codes to stdout.
 
-Terminal image protocols (Kitty graphics, iTerm2, Sixel) do not work through
-this tool: Claude Code's shell tool captures stdout as text rather than
-piping raw bytes to the terminal, so escape sequences never reach it as
-image data — confirmed by testing, not assumed. Opening the rendered file
-with the OS's own viewer is the only way to get a true, full-color render
-from a terminal-based session; it's one step away (the image opens in its
-own window) rather than inline in the chat.
+Those are two different paths and only one of them works here: writing Kitty
+graphics / iTerm2 / Sixel escape codes to Bash's stdout does **not** render
+an image — Claude Code's shell tool captures that stdout as text rather than
+piping raw bytes to the terminal, so the codes arrive as literal escaped
+text (confirmed by testing). But `Read`-ing an image file is a first-class,
+separate capability Claude Code supports independent of the shell, and it
+*does* display inline in the response, in terminals that support it. Always
+use `Read` for the final display step, never `open`/`xdg-open` and never a
+hand-written escape sequence.
 
 ## Input
 
@@ -53,10 +58,9 @@ One of:
    theme; `-s 3` renders at 3x scale for a crisp image. If mmdc exits with a
    syntax error, show the error and ask the user to fix the source rather
    than guessing a correction.
-4. **Open it.** Run `open <out>.png` (macOS) to display it in the default
-   viewer. On Linux, use `xdg-open` instead; there is no terminal-native
-   path to display it, since this tool cannot pipe pixels to the pty — say
-   that plainly if asked why it's not "inline."
+4. **Display it inline.** Call the `Read` tool on `<out>.png`. That's the
+   entire display step — no Bash `open`/`xdg-open`, no printf'd escape
+   sequences. The image appears directly in the response.
 5. **Never write output files into the project tree.** Scratch directory
    only, per the project's own temp-file convention.
 
@@ -65,7 +69,6 @@ One of:
 - If the user wants a diagram *built* from scratch (not just previewed), ask
   what it should show and draft the Mermaid source with them before
   rendering — this skill doesn't invent diagram content on its own.
-- If the user asks for the render to actually show up inline in terminal
-  text instead, that's a different, much lower-fidelity tradeoff (hand-drawn
-  monochrome ASCII art) — confirm which they want rather than silently
-  picking one.
+- If the viewer's terminal doesn't support inline images at all, the `Read`
+  result still succeeds on Claude Code's side (it's shown in the response
+  either way) — there's no separate fallback to build for that case.

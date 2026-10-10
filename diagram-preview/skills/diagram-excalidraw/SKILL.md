@@ -53,5 +53,6 @@ One of:
   scene.
 - If a local, no-browser render ever becomes worth revisiting (a maintained
   `excalidraw-to-png` CLI shows up, or `npm install` is viable in the given
-  environment), re-point this at the same render-and-`open` pattern used by
-  `diagram-mermaid` instead of changing the Artifact fallback silently.
+  environment), re-point this at the same render-to-file-then-`Read` pattern
+  used by `diagram-mermaid` instead of changing the Artifact fallback
+  silently.
