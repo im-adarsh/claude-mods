@@ -1,0 +1,25 @@
+{
+  "name": "claude-mods",
+  "description": "A collection of small Claude Code mods and themes",
+  "owner": {
+    "name": "Adarsh Kumar"
+  },
+  "plugins": [
+    {
+      "name": "goland-skin",
+      "description": "JetBrains GoLand Darcula colors for Claude Code, plus a matching Warp terminal theme",
+      "source": "./goland-skin",
+      "version": "1.0.0",
+      "category": "theme",
+      "tags": ["theme", "goland", "darcula", "jetbrains", "dark-theme"]
+    },
+    {
+      "name": "diagram-preview",
+      "description": "Preview Mermaid and Excalidraw diagrams as Claude Code Artifacts, from pasted source or a file path",
+      "source": "./diagram-preview",
+      "version": "0.1.0",
+      "category": "productivity",
+      "tags": ["mermaid", "excalidraw", "diagram", "artifact", "preview"]
+    }
+  ]
+}
