@@ -1,0 +1,7 @@
+{
+  "name": "goland-skin",
+  "version": "1.0.0",
+  "description": "JetBrains GoLand Darcula colors for Claude Code, plus a matching Warp terminal theme",
+  "author": { "name": "Adarsh Kumar" },
+  "keywords": ["theme", "goland", "darcula", "jetbrains", "dark-theme"]
+}

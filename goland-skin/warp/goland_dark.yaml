@@ -1,0 +1,28 @@
+name: GoLand Dark
+accent: '#548AF7'
+cursor: '#CED0D6'
+background: '#1E1F22'
+foreground: '#BCBEC4'
+details: darker
+# Bright slots double as Claude Code's syntax colors (dark-ansi base):
+#   magentaBright=keyword, cyanBright=type/builtin, blueBright=number/literal,
+#   greenBright=string, yellowBright=function, blackBright=comment
+terminal_colors:
+  normal:
+    black: '#1E1F22'
+    red: '#F75464'
+    green: '#6AAB73'
+    yellow: '#E0BB65'
+    blue: '#548AF7'
+    magenta: '#C77DBB'
+    cyan: '#2AACB8'
+    white: '#BCBEC4'
+  bright:
+    black: '#7A7E85'
+    red: '#FA6675'
+    green: '#6AAB73'
+    yellow: '#56A8F5'
+    blue: '#2AACB8'
+    magenta: '#CF8E6D'
+    cyan: '#16BAAC'
+    white: '#DFE1E5'
