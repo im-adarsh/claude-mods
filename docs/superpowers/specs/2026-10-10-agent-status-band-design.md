@@ -138,7 +138,18 @@ once space runs out, oldest-finished collapsing first.
 Built-in table, keyed by `subagentType` (the string `$.agent.list()` and
 `agent.spawn` carry), covering what's actually installed in this user's own
 plugin set — not an attempt to anticipate every possible subagent name
-system-wide. A handful of representative entries (full table finalized
+system-wide.
+
+**Icon style note:** the reference point here is a pixel-art multi-agent
+panel (character sprites per role, name labels, task/progress info) — too
+large for this band's single terminal row, so that panel isn't what's being
+built. What does carry over: each role glyph should read as a small
+*character*, not a generic category symbol — the difference between a
+plain briefcase/gear glyph and something with a bit of personality, the way
+claude-skins gives each theme its own spinner/done word flavor rather than
+a neutral "loading". Still one Unicode cell, still no emoji, still flat —
+just chosen for distinctiveness and a little charm over blandness. A
+handful of representative entries (full table and final glyph choices set
 during implementation, against the user's actual installed agents):
 
 | `subagentType` pattern | Role | Icon (unicode glyph, TBD exact choice) |
