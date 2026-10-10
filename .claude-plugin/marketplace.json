@@ -20,6 +20,14 @@
       "version": "0.1.0",
       "category": "productivity",
       "tags": ["mermaid", "excalidraw", "diagram", "artifact", "preview"]
+    },
+    {
+      "name": "agent-status-band",
+      "description": "A two-line band above the prompt showing every agent in the session: role icons, status, emotion, and an aggregate traffic light",
+      "source": "./agent-status-band",
+      "version": "0.1.0",
+      "category": "productivity",
+      "tags": ["agents", "subagents", "status", "band", "multi-agent"]
     }
   ]
 }
