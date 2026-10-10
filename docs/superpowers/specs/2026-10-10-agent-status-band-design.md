@@ -7,9 +7,10 @@
 
 A Claude Code mod that shows, at a glance, what every agent in the current
 session is doing — the main loop plus any spawned subagents — without
-reading the transcript. A single compact row pinned above the prompt box:
-one icon chip per agent (role-specific icon + a status dot), plus one
-aggregate traffic light summarizing the whole session's state.
+reading the transcript. A compact two-row band pinned above the prompt box:
+one icon chip per agent (role-specific icon + emotion glyph + a status dot)
+plus an aggregate traffic light on the top row, and the overall todo-list
+progress bar on the row beneath it.
 
 Audience: the user themselves, during multi-agent sessions (subagent
 dispatch, parallel forks, teammate-style loops) where it's otherwise hard to
@@ -24,6 +25,13 @@ scrolling.
   Read-only visibility.
 - Not pixel/SVG rendering — this targets the terminal surface specifically
   (character-based `ui.render`), not the desktop app's pixel canvas.
+- Not a wide-terminal feature. `diff`'s own docked panel requires 110-144
+  columns to open at all (its README states this plainly) — a real
+  limitation on a 14" laptop running a narrow or split terminal. This band
+  must render at any terminal width, never refusing to show or asking for
+  a wider one, and never growing past its fixed two lines regardless of
+  width, agent count, or content. Small and out of the way is a hard
+  constraint, not a nice-to-have.
 
 ## Architecture
 
@@ -41,7 +49,8 @@ external git state has no announcing hook):
 The mod keeps one in-memory row per tracked agent (main-loop chip always
 first, then one per live entry from `$.agent.list()` in spawn order),
 rebuilt on the relevant hooks, and re-renders the band via `ui.render` —
-same pattern `diff`'s `Pane` uses for its panel, but a single row.
+same pattern `diff`'s `Pane` uses for its panel, but two thin rows instead
+of a multi-row panel.
 
 ### Open technical risk — `tool.check` agent attribution
 
@@ -76,8 +85,10 @@ built**, as the first implementation task. Two fallback strategies if
 
 ## Layout
 
-One `ui.render` row, full terminal width, pinned above the prompt box
-(same general placement class as the existing usage band other mods use).
+A `ui.render` band, full terminal width, pinned above the prompt box (same
+general placement class as the existing usage band other mods use). Two
+rows: this section covers the top (agent chips) row; the progress-bar row
+beneath it is covered in its own section below.
 
 Per chip: `<role icon><emotion glyph><short label><status dot>`.
 
@@ -126,12 +137,57 @@ finalized during implementation, same no-emoji convention as the rest of
 the band) — no color coding of its own; emotion is a separate signal from
 the status dot's color, shown alongside it, not blended into it.
 
-## Overflow
+## Overall task progress bar
 
-When chips would exceed terminal width: every `working` (actively mid-call)
-chip stays visible — that's the band's whole point. Finished chips
-(`completed`/`failed`/`killed`) collapse into a trailing `+N done` badge
-once space runs out, oldest-finished collapsing first.
+A second thin row, directly beneath the agent-chip row — same width, same
+terminal-only treatment, no new surface.
+
+**Data source:** scan `$.session.messages()` for the most recent
+`TodoWrite` tool call, read its `todos` array, count entries with
+`status === 'completed'` against the array's total length. No dedicated
+hook needed — this mirrors (independently reimplemented, not copied) the
+same technique `diff`'s own progress bar uses, confirmed by reading its
+`todos/todo-progress-of.ts` for understanding: transcript-derived, not a
+separate task-tracking data source. Before any `TodoWrite` call has
+happened, the count is `0/0` — the row renders a flat/empty bar rather than
+a 0% bar, so it doesn't falsely read as "started and at zero."
+
+**Rendering:** a text-mode bar using block characters (e.g. `█`/`░`
+proportional fill) plus the `done/total` fraction as text, full row width.
+Updates on `prompt.submit` / whenever a new `TodoWrite` call appears in the
+transcript — event-driven like the rest of the band, no polling.
+
+**Relationship to the agent rows above:** this is the *todo list's*
+progress, not an aggregate of agent statuses — a session can have a mostly-
+complete todo list with agents still running cleanup, or a fully "done"
+set of agents before the todo list is marked complete. The two rows are
+related but deliberately not derived from each other.
+
+## Overflow and narrow terminals
+
+No minimum width — this band renders something useful even in an 80-column
+split pane, which is a realistic width on a 14" laptop, not an edge case to
+shrug off. Degrades in stages as width shrinks, each stage applied only as
+far as needed to fit:
+
+1. Full chips: `<role icon><emotion glyph><label><status dot>` for every
+   agent.
+2. Drop the short label, keep `<role icon><emotion glyph><status dot>` —
+   role is still legible from the icon alone.
+3. Collapse finished (`completed`/`failed`/`killed`) chips into a trailing
+   `+N done` badge, oldest-finished first — only `working` chips stay
+   individually shown, per-agent.
+4. If even every `working` chip's minimal form can't fit (many agents,
+   very narrow terminal), collapse to a single summary: role icons packed
+   with no gaps, no labels, no per-chip dots — just the aggregate light.
+
+The progress-bar row scales its fill width to whatever's available and
+always keeps its `done/total` text, truncating the bar graphic before ever
+truncating the number.
+
+Both rows stay exactly two terminal lines tall at every width — nothing
+here ever wraps to a third line or grows taller to fit more content; it
+degrades sideways, never down.
 
 ## Role → icon mapping
 
@@ -142,8 +198,9 @@ system-wide.
 
 **Icon style note:** the reference point here is a pixel-art multi-agent
 panel (character sprites per role, name labels, task/progress info) — too
-large for this band's single terminal row, so that panel isn't what's being
-built. What does carry over: each role glyph should read as a small
+large for this band's compact terminal rows, so that illustrated panel
+isn't what's being built (the progress-bar *row* below is this spec's only
+borrowing from that reference; the character sprites themselves are not). What does carry over: each role glyph should read as a small
 *character*, not a generic category symbol — the difference between a
 plain briefcase/gear glyph and something with a bit of personality, the way
 claude-skins gives each theme its own spinner/done word flavor rather than
@@ -184,6 +241,11 @@ hook it covers, run via `claude plugin test ./agent-status-band`. Key cases:
 - Aggregate light reflects worst-state-wins correctly across multiple
   concurrent agents in different states.
 - Overflow collapses finished chips before truncating working ones.
+- Narrow-width degradation applies each stage only as far as needed (e.g.
+  dropping labels alone is enough at some widths, without also collapsing
+  finished chips or losing per-chip dots).
+- Both rows stay exactly two lines at the narrowest width the test suite
+  exercises — no wrapping, no growth.
 - Emotion precedence ladder: each rule fires under the right condition and
   higher-priority rules correctly pre-empt lower ones (e.g. a `failed`
   agent shows sad even if it also had a long runtime that would otherwise
@@ -191,14 +253,27 @@ hook it covers, run via `claude plugin test ./agent-status-band`. Key cases:
 - Whatever the `tool.check` attribution resolution turns out to be (full
   per-chip color, or the degraded binary fallback), it's covered by a test
   that pins down which behavior actually shipped.
+- Progress row reads `0/0` (empty bar, not a 0% bar) before any `TodoWrite`
+  call exists in the transcript.
+- Progress row correctly counts `completed` vs total from the *latest*
+  `TodoWrite` call specifically, ignoring earlier, superseded calls.
+- Progress row updates when a new `TodoWrite` call appears, without a
+  polling loop (i.e. it's driven by the same event hook as the rest of the
+  band, not a timer).
 
 ## Licensing note
 
 This spec is written from the user's own feature request plus
-publicly-readable *type declarations* (`mods/types/claude-code.d.ts`) and
-*behavior descriptions* (mod READMEs) in `anthropics/claude-code`, which
-carries no open-source license (see prior licensing discussion in this
-project). No source code from that repo is copied here — only the shape of
-its documented hook event contract, which is necessary, factual
-information about the platform API this mod is written against, not
-Anthropic's own implementation. This mod's own implementation is original.
+publicly-readable *type declarations* (`mods/types/claude-code.d.ts`),
+*behavior descriptions* (mod READMEs), and one short, single-purpose
+utility read for understanding only — `diff`'s `todos/todo-progress-of.ts`
+(find the latest `TodoWrite` call, count completed vs total statuses) — in
+`anthropics/claude-code`, which carries no open-source license (see prior
+licensing discussion in this project). No source code from that repo is
+copied here: the todo-progress technique is three lines of obvious,
+unprotectable logic once you know `TodoWrite`'s shape (the same thing
+`diff`'s own `110|144`-column-threshold behavior is, functional platform
+knowledge), and the role/emotion/traffic-light design above it is this
+mod's own. Treat this the same way as `diff`'s README table and type
+declarations: read for facts about the platform, never copied as text or
+code, and the resulting implementation is original to this mod.
