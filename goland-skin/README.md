@@ -10,6 +10,12 @@ Claude Code's theme covers Claude's own colors (text, accents, diffs, panels, st
 goland-skin/
 ├── .claude-plugin/
 │   └── plugin.json       # plugin manifest; themes/ is auto-loaded
+├── hooks/
+│   ├── hooks.json        # mod manifest
+│   ├── register.tsx      # /goland on|off|status — switches the theme live
+│   └── register.test.ts
+├── types/
+│   └── index.d.ts        # $.state contract for the previous-theme memory
 ├── themes/
 │   └── goland-dark.json  # Claude Code custom theme (56 tokens, base: dark-ansi)
 └── warp/
@@ -41,11 +47,8 @@ cp goland-skin/warp/goland_dark.yaml   ~/.warp/themes/goland_dark.yaml
 
 ## Activate
 
-1. **Claude Code** — run `/theme` and pick **GoLand Dark**, or set it directly in `~/.claude/settings.json`:
-   ```json
-   { "theme": "custom:goland-dark" }
-   ```
-2. **Warp** — Settings → Appearance → Themes → **GoLand Dark**, and turn off "Follow macOS appearance" so it doesn't get overridden on a light/dark switch.
+1. **Claude Code** — type `/goland` (or `/goland on`). It switches the theme live via `$.config.set`, remembers what you had so `/goland off` restores it, and drops the Warp theme file into `~/.warp/themes/goland_dark.yaml` for you. `/goland status` reports both. (If this session hasn't enabled hot reloading for plugin mods, or you're just installing the plugin without the hooks loaded, fall back to `/theme` → **GoLand Dark**, or set it directly in `~/.claude/settings.json`: `{ "theme": "custom:goland-dark" }`.)
+2. **Warp** — pick it once in Settings → Appearance → Themes → **GoLand Dark** (the file is already there after step 1), and turn off "Follow macOS appearance" so it doesn't get overridden on a light/dark switch. `/goland` has no way to flip Warp's own active theme — Warp has no hook API for that — so this one pick stays manual.
 3. **Font** (optional, for the full IDE feel) — GoLand ships with JetBrains Mono:
    ```bash
    brew install --cask font-jetbrains-mono
