@@ -1,0 +1,7 @@
+{
+  "name": "diagram-preview",
+  "version": "0.1.0",
+  "description": "Preview Mermaid and Excalidraw diagrams as Claude Code Artifacts, from pasted source or a file path",
+  "author": { "name": "Adarsh Kumar" },
+  "keywords": ["mermaid", "excalidraw", "diagram", "artifact", "preview"]
+}
