@@ -74,6 +74,24 @@ test('statusDotOf running status with a pending ask still reads green, not yello
   expect(statusDotOf(r)).toBe('green')
 })
 
+test('statusDotOf main row reads green while working, regardless of status (which never changes)', ($, on) => {
+  const r = row({ id: 'main', status: 'running', working: true })
+  expect(statusDotOf(r)).toBe('green')
+})
+
+test('statusDotOf main row reads dim while idle, not stuck green forever', ($, on) => {
+  const r = row({ id: 'main', status: 'running', working: false })
+  expect(statusDotOf(r)).toBe('dim')
+})
+
+test('statusDotOf main row ignores status entirely, even if somehow set to failed', ($, on) => {
+  // Status never actually changes for the main row in practice (see
+  // agents.ts), but statusDotOf should not rely on that invariant holding
+  // — the id check takes priority over any status value.
+  const r = row({ id: 'main', status: 'failed', working: true })
+  expect(statusDotOf(r)).toBe('green')
+})
+
 test('aggregateLightOf null when no agents have any signal yet (all focused, main loop idle)', ($, on) => {
   expect(aggregateLightOf([row({ id: 'main', status: 'running', toolCallCount: 0 })])).toBe(null)
 })

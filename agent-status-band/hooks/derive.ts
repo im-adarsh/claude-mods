@@ -44,6 +44,14 @@ export function emotionOf(row: AgentRow, now: number): Emotion {
 }
 
 export function statusDotOf(row: AgentRow): StatusDot {
+  // The main loop has no AgentInfo entry of its own (see agents.ts), so
+  // its `status` never leaves 'running' — red/dim would be permanently
+  // unreachable for it. Its dot instead reflects `working`: green while
+  // actively mid-call, dim while idle. Subagent rows keep the
+  // status-based scheme, since their status IS reliably attributed.
+  if (row.id === 'main') {
+    return row.working ? 'green' : 'dim'
+  }
   if (row.status === 'failed' || row.status === 'killed') return 'red'
   if (row.status === 'completed') return 'dim'
   return 'green'

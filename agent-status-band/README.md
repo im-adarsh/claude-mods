@@ -7,16 +7,19 @@ the transcript.
 ## What it shows
 
 **Row 1 — agent chips:** one per agent, `<role icon><emotion glyph><status
-dot>` (label shown too when there's room): a keyboard glyph for developer
+dot>` (label shown too when there's room): a diamond glyph for developer
 agents, a pencil for designers, a checkmark for reviewers, and so on (see
-`hooks/icons.ts` for the full table). The status dot per agent is green
-while running, dim/gray when completed, red if failed or killed. The
-aggregate traffic light sits at the row's right edge and shows yellow when
-any agent is waiting on approval — that distinction can't be attributed to
-a specific agent per-row, so it only shows at the aggregate level (see the
-design spec for details). Emotion (sad/frustrated/happy/exhausted/excited/
-focused) is derived from each agent's own status, call volume, and
-runtime — not random.
+`hooks/icons.ts` for the full table). For a subagent, the status dot is
+green while running, dim/gray when completed, red if failed or killed. The
+main-loop chip is different — it has no completed/failed state of its own
+(it isn't a dispatched task the way a subagent is), so its dot instead
+tracks whether it's actively mid-call right now: green while working, dim
+while idle. The aggregate traffic light sits at the row's right edge and
+shows yellow when any agent is waiting on approval — that distinction
+can't be attributed to a specific agent per-row, so it only shows at the
+aggregate level (see the design spec for details). Emotion (sad/
+frustrated/happy/exhausted/excited/focused) is derived from each agent's
+own status, call volume, and runtime — not random.
 
 **Row 2 — todo progress:** a block-character bar plus `done/total`, read
 from the transcript's latest `TodoWrite` call.
