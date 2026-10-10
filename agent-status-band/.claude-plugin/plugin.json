@@ -1,0 +1,7 @@
+{
+  "name": "agent-status-band",
+  "version": "0.1.0",
+  "description": "A two-line band above the prompt showing every agent in the session: role icons, status, emotion, and an aggregate traffic light",
+  "author": { "name": "Adarsh Kumar" },
+  "keywords": ["agents", "subagents", "status", "band", "multi-agent"]
+}
