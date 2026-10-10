@@ -1,0 +1,29 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  mods:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        mod: [goland-skin, diagram-preview]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Validate ${{ matrix.mod }}
+        run: claude plugin validate ./${{ matrix.mod }}
+
+      - name: Test ${{ matrix.mod }}
+        run: |
+          if [ -f "./${{ matrix.mod }}/hooks/hooks.json" ]; then
+            claude plugin test ./${{ matrix.mod }}
+          else
+            echo "No hooks module in ${{ matrix.mod }}, skipping claude plugin test"
+          fi
