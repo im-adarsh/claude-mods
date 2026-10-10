@@ -55,6 +55,8 @@ export type AgentEvent =
   | { type: 'toolCallEnd'; agentId: string | null }
   | { type: 'checkDecision'; agentId: string | null; decision: 'allow' | 'ask' | 'deny' }
   | { type: 'statusSync'; statuses: ReadonlyArray<{ id: string; status: AgentState }> }
+  | { type: 'resetMain'; now: number }
+  | { type: 'clearCheckDecision' }
 
 function rowId(agentId: string | null): string {
   return agentId ?? 'main'
@@ -72,8 +74,8 @@ function newRow(id: string, subagentType: string | null, now: number): AgentRow 
   }
 }
 
-export function emptyState(): AgentsState {
-  return { rows: [newRow('main', null, 0)] }
+export function emptyState(now: number): AgentsState {
+  return { rows: [newRow('main', null, now)] }
 }
 
 function updateRow(
@@ -126,5 +128,28 @@ export function applyEvent(state: AgentsState, event: AgentEvent): AgentsState {
         }),
       }
     }
+
+    case 'resetMain':
+      // Scopes the main loop's "exhaustion" to the current turn: a fresh
+      // prompt resets the clock and the call count so a long-running
+      // *session* doesn't permanently pin the one chip that's always
+      // visible to the exhausted state (see Important 1 of the final
+      // review fix wave).
+      return updateRow(state, 'main', row => ({
+        ...row,
+        toolCallCount: 0,
+        spawnedAt: event.now,
+      }))
+
+    case 'clearCheckDecision':
+      // Clears every row's pending ask/deny signal back to neutral. Without
+      // this, the last check decision of a turn sticks forever — the
+      // aggregate light (and a row's "frustrated" emotion) would stay
+      // yellow/red indefinitely even once the session goes idle and
+      // nothing is actually pending (Important 2 of the final review fix
+      // wave).
+      return {
+        rows: state.rows.map(row => ({ ...row, lastCheckDecision: null })),
+      }
   }
 }

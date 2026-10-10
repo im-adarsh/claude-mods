@@ -56,8 +56,19 @@ function totalWidth(rows: readonly AgentRow[], mode: ChipMode): number {
     ? rows.filter(row => row.id === 'main' || !isFinished(row))
     : rows
   const chipsWidth = visible.reduce((sum, row) => sum + estimatedChipWidth(row, mode), 0)
-  const badge = rows.some(isFinished) && (mode === 'collapsed-finished' || mode === 'icons-only') ? 7 : 0
-  return chipsWidth + badge
+
+  const finishedCount = rows.filter(isFinished).length
+  const badge = finishedCount > 0 && (mode === 'collapsed-finished' || mode === 'icons-only')
+    ? `+${finishedCount} done`.length
+    : 0
+
+  // renderChipRow draws the aggregate light (when non-null) as a 1-column
+  // glyph plus a `justifyContent: 'space-between'` gap of 1 column between
+  // it and the chip row; both must count toward the estimate or a row can
+  // land 1-2 columns over budget right at a stage boundary.
+  const light = aggregateLightOf(rows) !== null ? 1 + 1 : 0
+
+  return chipsWidth + badge + light
 }
 
 export function pickChipMode(rows: readonly AgentRow[], maxCols: number): ChipMode {
@@ -68,14 +79,18 @@ export function pickChipMode(rows: readonly AgentRow[], maxCols: number): ChipMo
   return 'icons-only' // narrowest stage always "fits" even if it visually clips
 }
 
+const TRUNCATE_END: Tree['props'] = { wrap: 'truncate-end' }
+
 function renderChip(row: AgentRow, mode: ChipMode, now: number): Tree {
   const dot = statusDotOf(row)
   const emotion = emotionOf(row, now)
 
-  const children: Tree['children'] = [text(iconOf(row))]
-  if (mode !== 'icons-only') children.push(text(EMOTION_GLYPH[emotion]))
-  if (mode === 'full') children.push(text(chipLabel(row)))
-  if (mode !== 'icons-only') children.push(text(STATUS_DOT_GLYPH, { color: DOT_COLOR[dot] }))
+  const children: Tree['children'] = [text(iconOf(row), TRUNCATE_END)]
+  if (mode !== 'icons-only') children.push(text(EMOTION_GLYPH[emotion], TRUNCATE_END))
+  if (mode === 'full') children.push(text(chipLabel(row), TRUNCATE_END))
+  if (mode !== 'icons-only') {
+    children.push(text(STATUS_DOT_GLYPH, { color: DOT_COLOR[dot], wrap: 'truncate-end' }))
+  }
 
   return box({ flexDirection: 'row', marginRight: 1 }, children)
 }
@@ -89,7 +104,7 @@ function renderChipRow(rows: readonly AgentRow[], mode: ChipMode, now: number): 
 
   const chips = visibleRows.map(row => renderChip(row, mode, now))
   if (collapsing && finishedCount > 0) {
-    chips.push(text(`+${finishedCount} done`, { dimColor: true }))
+    chips.push(text(`+${finishedCount} done`, { dimColor: true, wrap: 'truncate-end' }))
   }
 
   const light = aggregateLightOf(rows)
@@ -101,15 +116,21 @@ function renderChipRow(rows: readonly AgentRow[], mode: ChipMode, now: number): 
   return box({ flexDirection: 'row', justifyContent: 'space-between' }, children)
 }
 
-function renderProgressRow(progress: TodoProgress): Tree {
-  const barWidth = 20
+function renderProgressRow(progress: TodoProgress, bodyColumns: number): Tree {
+  // The bar graphic must truncate before the done/total number ever would:
+  // reserve room for the fraction text and a separating space first, then
+  // give whatever's left to the bar (clamped to 0 at extremely narrow
+  // widths), so the bar shrinks instead of the number wrapping to a third
+  // line.
+  const fractionText = `${progress.done}/${progress.total}`
+  const barWidth = Math.max(0, bodyColumns - fractionText.length - 1)
   const filled =
     progress.total === 0 ? 0 : Math.round((progress.done / progress.total) * barWidth)
   const bar = '█'.repeat(filled) + '░'.repeat(barWidth - filled)
 
   return box({ flexDirection: 'row' }, [
-    text(bar, { dimColor: progress.total === 0 }),
-    text(` ${progress.done}/${progress.total}`),
+    text(bar, { dimColor: progress.total === 0, wrap: 'truncate-end' }),
+    text(` ${fractionText}`, { wrap: 'truncate-end' }),
   ])
 }
 
@@ -122,6 +143,6 @@ export function renderBand(
   const mode = pickChipMode(rows, maxCols)
   return box({ flexDirection: 'column' }, [
     renderChipRow(rows, mode, now),
-    renderProgressRow(progress),
+    renderProgressRow(progress, maxCols),
   ])
 }

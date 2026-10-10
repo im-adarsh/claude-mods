@@ -4,7 +4,7 @@ import type { AgentsState, AgentState } from './agents'
 import { renderBand } from './band'
 import { todoProgressOf } from './todo-progress'
 
-let state: AgentsState = emptyState()
+let state: AgentsState = emptyState(Date.now())
 
 // AgentInfo.status (from $.agent.list()) is documented as "running,
 // completed, failed, killed, or another of the engine's task statuses" — it
@@ -49,11 +49,14 @@ export const register: Register = on => {
     state = applyEvent(state, { type: 'toolCallStart', agentId, now: Date.now() })
     $.ui.invalidate('ui.render')
 
-    const result = await next(e)
-
-    state = applyEvent(state, { type: 'toolCallEnd', agentId })
-    await resync($)
-    return result
+    try {
+      return await next(e)
+    } finally {
+      // Runs even if next(e) throws, so a failing call can't leave the row
+      // permanently stuck at working: true with no resync ever happening.
+      state = applyEvent(state, { type: 'toolCallEnd', agentId })
+      await resync($)
+    }
   })
 
   on('tool.check', async ($, e, next) => {
@@ -63,13 +66,48 @@ export const register: Register = on => {
     // all (ToolCheckInput has no AgentLoop mixin), on both the query path
     // and a real engine-dispatched call. So there is no `agentId` to read
     // off `e` here; every decision is recorded against the main-loop row.
-    const agentId: string | null = null
-    state = applyEvent(state, { type: 'checkDecision', agentId, decision: result.decision })
-    $.ui.invalidate('ui.render')
+    //
+    // Guard: `tool_use_id` is present only when the engine is deciding a
+    // real pending call; it's absent when another plugin calls
+    // `$.tool.check(...)` just to ask a hypothetical question. Skip
+    // recording entirely for the latter — otherwise a query with no real
+    // call behind it could paint the main-loop row (and the aggregate
+    // light) red/yellow for a decision nothing is actually waiting on.
+    if (e.tool_use_id) {
+      const agentId: string | null = null
+      state = applyEvent(state, { type: 'checkDecision', agentId, decision: result.decision })
+      $.ui.invalidate('ui.render')
+    }
     return result
   })
 
-  on('ui.render', { component: 'AbovePrompt', surface: 'terminal' }, async ($, e) => {
+  on('prompt.submit', async ($, e, next) => {
+    // A new turn starting is the natural boundary to scope the main loop's
+    // "exhaustion" to (Important 1) and to drop any stale ask/deny signal
+    // left over from the previous turn (Important 2) — otherwise both
+    // would otherwise persist for the rest of the session even once
+    // nothing is actually pending or running long.
+    const now = Date.now()
+    state = applyEvent(state, { type: 'resetMain', now })
+    state = applyEvent(state, { type: 'clearCheckDecision' })
+    $.ui.invalidate('ui.render')
+    return next(e)
+  })
+
+  on('turn.complete', async ($, e, next) => {
+    const result = await next(e)
+    // A background subagent can finish its turn while the main loop stays
+    // idle; without a resync here, nothing else would ever notice until an
+    // unrelated agent.spawn/tool.call happened to fire one (Important 4).
+    await resync($)
+    return result
+  })
+
+  on('ui.render', { component: 'AbovePrompt', surface: 'terminal' }, async ($, e, next) => {
+    // hasSurvey: true means a survey holds the band; yield to it rather
+    // than drawing over it (Important 5).
+    if (e.props.hasSurvey) return next(e)
+
     const messages = await $.session.messages()
     const progress = todoProgressOf(messages)
     // AbovePrompt's props (hasSurvey, isWorking, maxRows, bodyColumns, scroll,

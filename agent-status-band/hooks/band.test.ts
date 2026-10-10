@@ -66,6 +66,46 @@ test('renderBand always produces exactly two rows (two top-level Box children)',
   expect(tree.children).toHaveLength(2)
 })
 
+test('pickChipMode (totalWidth) accounts for the aggregate light glyph and its gap, not just the chips', ($, on) => {
+  const plain = [row({ id: 'main' })]
+  const withSignal = [row({ id: 'main', lastCheckDecision: 'ask' })]
+  // Same chip layout either way; only the aggregate light differs (null vs
+  // yellow). At a width that only fits the chip plus the light's 2 extra
+  // columns in a less-labeled mode, the signal-bearing row must degrade
+  // further than the plain one.
+  expect(pickChipMode(plain, 10)).toBe('full')
+  expect(pickChipMode(withSignal, 10)).toBe('no-label')
+})
+
+test('pickChipMode badge width reflects the real "+N done" string length, not a hardcoded 7, degrading further when N is large', ($, on) => {
+  const rows = [
+    row({ id: 'main' }),
+    ...Array.from({ length: 15 }, (_, i) => row({ id: `a${i}`, status: 'completed' as const, subagentType: 'X' })),
+  ]
+  // '+15 done' is 8 columns, not 7: at width 13 the old hardcoded estimate
+  // would have (wrongly) fit collapsed-finished; the real length pushes it
+  // one stage further to icons-only.
+  expect(pickChipMode(rows, 13)).toBe('icons-only')
+  expect(pickChipMode(rows, 14)).toBe('collapsed-finished')
+})
+
+test('renderProgressRow bar shrinks (not the done/total number) as bodyColumns narrows toward a very narrow width', ($, on) => {
+  const wide = renderBand([row()], { done: 3, total: 10 }, 50, 0)
+  const narrow = renderBand([row()], { done: 3, total: 10 }, 8, 0)
+
+  type TreeLike = { children?: Array<TreeLike | string> }
+  const wideProgressRow = wide.children?.[1] as TreeLike
+  const narrowProgressRow = narrow.children?.[1] as TreeLike
+
+  const wideBar = (wideProgressRow.children?.[0] as TreeLike).children?.[0] as string
+  const narrowBar = (narrowProgressRow.children?.[0] as TreeLike).children?.[0] as string
+  const narrowFraction = (narrowProgressRow.children?.[1] as TreeLike).children?.[0] as string
+
+  expect(narrowBar.length).toBeLessThan(wideBar.length)
+  // The number itself never shrinks or wraps — only the bar graphic does.
+  expect(narrowFraction).toBe(' 3/10')
+})
+
 test('renderBand working subagents stay visible even when width forces collapsing finished ones', ($, on) => {
   const rows = [
     row({ id: 'main' }),

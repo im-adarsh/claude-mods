@@ -100,3 +100,16 @@ test('aggregateLightOf green if everything settled with no red/yellow signal', (
   const rows = [row({ id: 'a1', status: 'completed' }), row({ id: 'a2', status: 'completed' })]
   expect(aggregateLightOf(rows)).toBe('green')
 })
+
+test('emotionOf a freshly spawned/reset main row is not exhausted right after spawnedAt, using a realistic wall-clock now (not 0)', ($, on) => {
+  // Regression for Important 1: emptyState()/resetMain used to stamp
+  // spawnedAt as 0 while `now` was a real Date.now() value, so `now -
+  // spawnedAt` was always enormous and the main chip read "exhausted" from
+  // the very first render. Using a realistic now for both spawnedAt and
+  // the elapsed check guards against that class of bug recurring.
+  const now = 1_760_000_000_000 // a realistic Date.now()-scale timestamp
+  const freshMainRow = row({ id: 'main', status: 'running', toolCallCount: 0, spawnedAt: now })
+  const emotion = emotionOf(freshMainRow, freshMainRow.spawnedAt + 1000)
+  expect(emotion).not.toBe('exhausted')
+  expect(emotion).toBe('excited')
+})

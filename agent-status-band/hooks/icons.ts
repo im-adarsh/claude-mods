@@ -5,11 +5,15 @@ export type Role = 'developer' | 'designer' | 'reviewer' | 'researcher' | 'teste
 export const MAIN_LOOP_ICON = '◆'
 
 export const ROLE_ICON: Record<Role, string> = {
-  developer: '⌨',
+  // '⌨' (keyboard) and '⚗' (alembic) can render as emoji or double-width in
+  // some terminal/font combinations, against the project's no-emoji,
+  // single-cell rule. '◈' and '◎' are plain text-presentation glyphs from
+  // the same geometric/dingbat blocks as the rest of this table.
+  developer: '◈',
   designer: '✎',
   reviewer: '✓',
   researcher: '⌕',
-  tester: '⚗',
+  tester: '◎',
   planner: '☰',
   generic: '◇',
 }

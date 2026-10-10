@@ -55,6 +55,42 @@ describe('agent-status-band wiring', () => {
     expect(rendered).toBeTruthy()
   })
 
+  test('a tool.check query with no tool_use_id (a plugin asking a hypothetical question, not a real pending call) does not pollute the aggregate light', async ($, on) => {
+    // Important 2's guard: register.tsx only records a checkDecision when
+    // e.tool_use_id is present (a real engine-dispatched decision).
+    // $.tool.check(...) is the real, typed way a plugin issues a query with
+    // no tool_use_id at all (ToolCheckArgs omits it) — this exercises that
+    // exact path through the real hook, rather than only asserting the
+    // guard exists by reading the source.
+    on('session.messages', () => ({ value: [] }))
+    on('tool.check', () => ({ decision: 'deny' as const }))
+
+    await $.tool.check({ tool: 'Read', input: { file_path: 'package.json' } })
+
+    const rendered = await $.ui.render(ABOVE_PROMPT)
+    expect(JSON.stringify(rendered)).not.toContain('red')
+  })
+
+  test('ui.render yields to a survey holding the band instead of drawing over it', async ($, on) => {
+    on('session.messages', () => ({ value: [] }))
+    // The test harness has no built-in default answer for ui.render (unlike
+    // a real session, where something beneath always does) — stub a base
+    // implementation so next(e) has something to resolve to when our
+    // handler yields.
+    on('ui.render', () => ({ type: 'Box', props: {}, children: [] }))
+
+    const rendered = await $.ui.render({
+      ...ABOVE_PROMPT,
+      props: { ...ABOVE_PROMPT.props, hasSurvey: true },
+    })
+
+    // With hasSurvey: true the handler returns next(e) immediately, before
+    // ever calling todoProgressOf/renderBand — so none of the band's own
+    // markers (e.g. the todo fraction) should appear in whatever the
+    // survey/engine default renders instead.
+    expect(JSON.stringify(rendered)).not.toContain('0/0')
+  })
+
   test('a tool.call does not break rendering', async ($, on) => {
     // The test harness has no real subagent loop (see hooks/agents.ts's
     // header comment), so a tool.call fired here always runs in the main
