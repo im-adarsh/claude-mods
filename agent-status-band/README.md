@@ -9,10 +9,12 @@ the transcript.
 **Row 1 — agent chips:** one per agent, `<role icon><emotion glyph><status
 dot>` (label shown too when there's room): a keyboard glyph for developer
 agents, a pencil for designers, a checkmark for reviewers, and so on (see
-`hooks/icons.ts` for the full table). The status dot is green while
-working, yellow if waiting on approval, red if denied or failed. An
-aggregate traffic light sits at the row's right edge, worst-state-wins
-across every agent. Emotion (sad/frustrated/happy/exhausted/excited/
+`hooks/icons.ts` for the full table). The status dot per agent is green
+while running, dim/gray when completed, red if failed or killed. The
+aggregate traffic light sits at the row's right edge and shows yellow when
+any agent is waiting on approval — that distinction can't be attributed to
+a specific agent per-row, so it only shows at the aggregate level (see the
+design spec for details). Emotion (sad/frustrated/happy/exhausted/excited/
 focused) is derived from each agent's own status, call volume, and
 runtime — not random.
 
