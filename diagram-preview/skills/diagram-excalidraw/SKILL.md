@@ -9,6 +9,15 @@ license: MIT
 General-purpose utility, not tied to any particular project. Renders an
 Excalidraw scene (the `elements`/`appState` JSON format) as a visual preview.
 
+Unlike `diagram-mermaid`, this renders through a Claude Code Artifact rather
+than opening a local image file. There is no reliable headless CLI that
+exports an Excalidraw scene to PNG/SVG: `@excalidraw/utils` exposes
+`exportToSvg`, but it needs an `npm install` into a real project (not just
+`npx`, which fails on ESM resolution for this package), and there's no
+maintained CLI wrapper around it. The Artifact route sidesteps all of that
+and still gives a full-color, interactive render — just in the browser tab
+the Artifact opens in, not as a file on disk.
+
 ## Input
 
 One of:
@@ -42,3 +51,7 @@ One of:
   `excalidraw-diagram` skill directly — this skill exists for the preview
   step, and only falls back to that skill when the input isn't already a
   scene.
+- If a local, no-browser render ever becomes worth revisiting (a maintained
+  `excalidraw-to-png` CLI shows up, or `npm install` is viable in the given
+  environment), re-point this at the same render-and-`open` pattern used by
+  `diagram-mermaid` instead of changing the Artifact fallback silently.
