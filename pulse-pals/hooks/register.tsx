@@ -8,6 +8,12 @@ import type { TurnStatusState } from './turn-status'
 
 let state: AgentsState = emptyState(Date.now())
 let turnState: TurnStatusState = initialTurnStatus()
+let animationStarted = false
+
+// How often the band redraws on its own, with nothing else happening, so the
+// avatar's blink and the rule's working-sweep are actually visible instead
+// of only updating on the rare redraw a tool call happens to trigger.
+const ANIMATION_TICK_MS = 500
 
 // AgentInfo.status (from $.agent.list()) is documented as "running,
 // completed, failed, killed, or another of the engine's task statuses" — it
@@ -129,6 +135,11 @@ export const register: Register = on => {
     // hasSurvey: true means a survey holds the band; yield to it rather
     // than drawing over it (Important 5).
     if (e.props.hasSurvey) return next(e)
+
+    if (!animationStarted) {
+      animationStarted = true
+      $.clock.every(ANIMATION_TICK_MS, () => $.ui.invalidate('ui.render'))
+    }
 
     const messages = await $.session.messages()
     const progress = todoProgressOf(messages)

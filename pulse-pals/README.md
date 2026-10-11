@@ -6,28 +6,25 @@ Formerly `agent-status-band`.
 
 ## What it shows
 
-A status-colored border frames the whole band, sitting flush above the
-prompt box — the closest a plugin can get to recoloring the input box's own
-border, which is a theme value (`promptBorder`), not something a hook can
-set per render.
-
-**Row 1 — agent chips:** one tiny avatar per agent, plus its label and
-status dot when there's room. Every avatar is "a little Claude" — the face
-is always Anthropic's own clay accent color, one text row tall (a `Raster`
-of real terminal cells, not an image file — see "Why pixel art as text"
-below), 5 columns wide. What varies:
+**Row 1 — agent chips:** one tiny avatar per agent, no label text — role
+and emotion are carried by the avatar itself, not a name written out beside
+it. Every avatar is "a little Claude" — the face is always Anthropic's own
+clay accent color, one text row tall (a `Raster` of real terminal cells,
+not an image file — see "Why pixel art as text" below), 5 columns wide.
+What varies:
 
 - **Role** is a small colored cap on top: a cream crown for the main loop,
   a single blue dot for developers, pink side-dots for designers, green
   side-dots for reviewers, a teal dot for researchers, an amber dot for
   testers, a lavender bar for planners, no cap at all for anything
-  unrecognized (see `hooks/creature.ts` for the full table). The label text
-  still spells the role out too.
+  unrecognized (see `hooks/creature.ts` for the full table).
 - **Emotion** (sad / frustrated / happy / exhausted / excited / focused)
   colors the eyes, derived from the agent's own status, call volume and
   runtime (`hooks/derive.ts`), never random.
 - Every avatar blinks every few seconds, out of phase per agent so a row of
-  several chips never blinks in unison.
+  several chips never blinks in unison — and it's reliably visible: the
+  band redraws itself on its own twice a second, not only when a tool call
+  happens to trigger a redraw.
 - The status dot is green while running, dim/gray when completed, red if
   failed or killed. The main-loop chip has no completed/failed state of its
   own (it isn't a dispatched task the way a subagent is), so its dot
@@ -38,21 +35,22 @@ below), 5 columns wide. What varies:
   to one specific agent (`tool.check`'s event carries no per-agent id), so
   it only ever shows at the aggregate level, never on an individual dot.
 
-**Row 2 — the pulse bar:** a hairline (~2px, drawn with the one-eighth
-block character) that always has something to say: idle, `working…` (a
-segment sweeps back and forth), `waiting on you` (solid amber the moment a
-tool call needs approval), or `done` (solid green, fading back to idle a
-few seconds after the turn completes). The todo fraction, read from the
-transcript's latest `TodoWrite` call, rides along on the same row when
-there are any — it no longer sits alone as a bare `0/0` on a session with
-no todos. The border around the whole band tracks the same status (gray
-and dim while idle, cyan while working, yellow while waiting, green when
-done), so the signal reads even before you look at row 2's text.
+**Row 2 — the rule:** not a boxed frame around the band (an earlier
+revision wrapped the whole thing in a bordered box, which just read as an
+extra UI widget sitting on top of the prompt) — one colored horizontal
+line, doing double duty as both the "border" and the progress indicator.
+It always has something to say: idle (dim gray), `working…` (cyan, a
+brighter segment sweeping back and forth), `waiting on you` (solid amber
+the moment a tool call needs approval), or `done` (solid green, fading back
+to idle a few seconds after the turn completes). The todo fraction, read
+from the transcript's latest `TodoWrite` call, rides along on the same line
+when there are any — it no longer sits alone as a bare `0/0` on a session
+with no todos.
 
-No minimum terminal width — the band degrades (dropping labels, then
-collapsing finished agents into a `+N done` badge, then icons-only, which
-still keeps each avatar's cap color and emotion) rather than refusing to
-render or asking for a wider terminal.
+No minimum terminal width — the band degrades (collapsing finished agents
+into a `+N done` badge, then icons-only, which still keeps each avatar's
+cap color and emotion) rather than refusing to render or asking for a
+wider terminal.
 
 ## Why pixel art as text
 

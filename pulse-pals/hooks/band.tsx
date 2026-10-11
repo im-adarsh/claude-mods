@@ -1,18 +1,16 @@
 import type { AgentRow } from './agents'
 import { aggregateLightOf, emotionOf, statusDotOf } from './derive'
-import {
-  AGGREGATE_LIGHT_GLYPH,
-  DOT_COLOR,
-  LIGHT_COLOR,
-  STATUS_DOT_GLYPH,
-  roleOf,
-} from './icons'
+import { AGGREGATE_LIGHT_GLYPH, DOT_COLOR, LIGHT_COLOR, STATUS_DOT_GLYPH, roleOf } from './icons'
 import { CREATURE_COLUMNS, CREATURE_TEXT_ROWS, creatureGrid, creatureRasterCells, isBlinking } from './creature'
 import type { RoleKey } from './creature'
 import type { TodoProgress } from './todo-progress'
 import type { TurnStatus, TurnStatusState } from './turn-status'
 
-export type ChipMode = 'full' | 'no-label' | 'collapsed-finished' | 'icons-only'
+// No label stage anymore — the avatar (color + cap + eyes) carries role and
+// emotion on its own; a role NAME beside it was the "weird name on its
+// side" nobody wanted. 'normal' shows every agent's avatar; narrower widths
+// collapse finished ones, then drop the dot too.
+export type ChipMode = 'normal' | 'collapsed-finished' | 'icons-only'
 
 export type Tree = {
   type: 'Box' | 'Text' | 'Raster'
@@ -43,25 +41,20 @@ function roleKeyOf(row: AgentRow): RoleKey {
   return row.id === 'main' ? 'main' : roleOf(row.subagentType)
 }
 
-function chipLabel(row: AgentRow): string {
-  return row.id === 'main' ? 'main' : roleOf(row.subagentType)
-}
-
 // A rough per-chip column estimate per mode, used only to decide which
 // mode fits — not the actual rendered width (the terminal does that).
-function estimatedChipWidth(row: AgentRow, mode: ChipMode): number {
+function estimatedChipWidth(mode: ChipMode): number {
   const avatar = CREATURE_COLUMNS
   const dot = mode === 'icons-only' ? 0 : 1
-  const label = mode === 'full' ? chipLabel(row).length + 1 : 0
   const gap = 1
-  return avatar + dot + label + gap
+  return avatar + dot + gap
 }
 
 function totalWidth(rows: readonly AgentRow[], mode: ChipMode): number {
   const visible = mode === 'collapsed-finished' || mode === 'icons-only'
     ? rows.filter(row => row.id === 'main' || !isFinished(row))
     : rows
-  const chipsWidth = visible.reduce((sum, row) => sum + estimatedChipWidth(row, mode), 0)
+  const chipsWidth = visible.length * estimatedChipWidth(mode)
 
   const finishedCount = rows.filter(isFinished).length
   const badge = finishedCount > 0 && (mode === 'collapsed-finished' || mode === 'icons-only')
@@ -78,14 +71,12 @@ function totalWidth(rows: readonly AgentRow[], mode: ChipMode): number {
 }
 
 export function pickChipMode(rows: readonly AgentRow[], maxCols: number): ChipMode {
-  const stages: ChipMode[] = ['full', 'no-label', 'collapsed-finished', 'icons-only']
+  const stages: ChipMode[] = ['normal', 'collapsed-finished', 'icons-only']
   for (const stage of stages) {
     if (totalWidth(rows, stage) <= maxCols) return stage
   }
   return 'icons-only' // narrowest stage always "fits" even if it visually clips
 }
-
-const TRUNCATE_END: Tree['props'] = { wrap: 'truncate-end' }
 
 function renderChip(row: AgentRow, mode: ChipMode, now: number, Raster: RasterBuilder): Tree {
   const emotion = emotionOf(row, now)
@@ -99,7 +90,6 @@ function renderChip(row: AgentRow, mode: ChipMode, now: number, Raster: RasterBu
   })
 
   const children: Tree['children'] = [avatar]
-  if (mode === 'full') children.push(text(chipLabel(row), TRUNCATE_END))
   if (mode !== 'icons-only') {
     children.push(text(STATUS_DOT_GLYPH, { color: DOT_COLOR[dot], wrap: 'truncate-end' }))
   }
@@ -128,9 +118,14 @@ function renderChipRow(rows: readonly AgentRow[], mode: ChipMode, now: number, R
   return box({ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, children)
 }
 
-const PULSE_BAR_CHAR = '▁'
+// The "border": not a boxed frame around the band (that read as a UI widget
+// sitting on top of the prompt), just this one colored rule, drawn with the
+// same box-drawing dash Claude Code's own dividers use. Its color is the
+// turn status; while working, a brighter segment sweeps across it, so the
+// line itself doubles as the progress bar rather than needing a second one.
+const RULE_CHAR = '─'
 const SWEEP_PERIOD_MS = 1400
-const SWEEP_SEGMENT_COLS = 5
+const SWEEP_SEGMENT_COLS = 6
 
 const STATUS_LABEL: Record<TurnStatus, string> = {
   idle: '',
@@ -139,8 +134,8 @@ const STATUS_LABEL: Record<TurnStatus, string> = {
   done: 'done',
 }
 
-const STATUS_COLOR: Record<TurnStatus, string | undefined> = {
-  idle: undefined,
+const STATUS_COLOR: Record<TurnStatus, string> = {
+  idle: 'gray',
   working: 'cyan',
   waiting: 'yellow',
   done: 'green',
@@ -162,52 +157,30 @@ function statusLabel(turn: TurnStatusState, todo: TodoProgress): string {
   return base ? `${base} · ${fraction}` : fraction
 }
 
-function renderPulseRow(turn: TurnStatusState, todo: TodoProgress, bodyColumns: number, now: number): Tree {
+function renderRuleRow(turn: TurnStatusState, todo: TodoProgress, bodyColumns: number, now: number): Tree {
   const label = statusLabel(turn, todo)
-  const labelText = label ? ` ${label}` : ''
+  const labelText = label ? ` ${label} ` : ''
   // Reserve room for the label first, same shrink-the-graphic-not-the-text
-  // approach as the old todo bar: the bar is what gives way at narrow widths.
-  const barWidth = Math.max(0, bodyColumns - labelText.length)
+  // approach as before: the rule is what gives way at narrow widths.
+  const ruleWidth = Math.max(0, bodyColumns - labelText.length)
+  const color = STATUS_COLOR[turn.status]
 
-  let bar: Tree
+  let rule: Tree
   if (turn.status === 'working') {
-    const segment = Math.min(SWEEP_SEGMENT_COLS, barWidth)
-    const start = sweepStart(now, barWidth, segment)
-    const tail = Math.max(0, barWidth - start - segment)
-    bar = box({ flexDirection: 'row' }, [
-      text(PULSE_BAR_CHAR.repeat(start), { dimColor: true }),
-      text(PULSE_BAR_CHAR.repeat(segment), { color: 'cyan' }),
-      text(PULSE_BAR_CHAR.repeat(tail), { dimColor: true }),
+    const segment = Math.min(SWEEP_SEGMENT_COLS, ruleWidth)
+    const start = sweepStart(now, ruleWidth, segment)
+    const tail = Math.max(0, ruleWidth - start - segment)
+    rule = box({ flexDirection: 'row' }, [
+      text(RULE_CHAR.repeat(start), { color, dimColor: true }),
+      text(RULE_CHAR.repeat(segment), { color }),
+      text(RULE_CHAR.repeat(tail), { color, dimColor: true }),
     ])
-  } else if (turn.status === 'waiting') {
-    bar = text(PULSE_BAR_CHAR.repeat(barWidth), { color: 'yellow' })
-  } else if (turn.status === 'done') {
-    bar = text(PULSE_BAR_CHAR.repeat(barWidth), { color: 'green' })
   } else {
-    bar = text(PULSE_BAR_CHAR.repeat(barWidth), { dimColor: true })
+    rule = text(RULE_CHAR.repeat(ruleWidth), { color, dimColor: turn.status === 'idle' })
   }
 
-  const labelProps: Tree['props'] = { wrap: 'truncate-end' }
-  const labelColor = STATUS_COLOR[turn.status]
-  if (labelColor) labelProps.color = labelColor
-
-  return box({ flexDirection: 'row' }, [bar, text(labelText, labelProps)])
+  return box({ flexDirection: 'row' }, [rule, text(labelText, { color, wrap: 'truncate-end' })])
 }
-
-// A plugin can't recolor Claude Code's own prompt-box border (that's a
-// theme value — `promptBorder` — not something a hook sets per render); the
-// closest honest equivalent is a border of our own, sitting flush above it,
-// that changes with the turn.
-const BORDER_STYLE = 'round'
-const BORDER_COLOR: Record<TurnStatus, string> = {
-  idle: 'gray',
-  working: 'cyan',
-  waiting: 'yellow',
-  done: 'green',
-}
-
-// 1 column of border plus 1 of padding on each side.
-const BORDER_OVERHEAD_COLS = 4
 
 export function renderBand(
   rows: readonly AgentRow[],
@@ -217,17 +190,9 @@ export function renderBand(
   now: number,
   Raster: RasterBuilder,
 ): Tree {
-  const innerCols = Math.max(0, maxCols - BORDER_OVERHEAD_COLS)
-  const mode = pickChipMode(rows, innerCols)
-
-  return box(
-    {
-      flexDirection: 'column',
-      borderStyle: BORDER_STYLE,
-      borderColor: BORDER_COLOR[turn.status],
-      borderDimColor: turn.status === 'idle',
-      paddingX: 1,
-    },
-    [renderChipRow(rows, mode, now, Raster), renderPulseRow(turn, todo, innerCols, now)],
-  )
+  const mode = pickChipMode(rows, maxCols)
+  return box({ flexDirection: 'column' }, [
+    renderChipRow(rows, mode, now, Raster),
+    renderRuleRow(turn, todo, maxCols, now),
+  ])
 }

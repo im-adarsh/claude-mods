@@ -46,11 +46,11 @@ function findRasterKeys(tree: unknown): string[] {
   return [...own, ...nested]
 }
 
-test('pickChipMode full mode when there is plenty of width', ($, on) => {
-  expect(pickChipMode([row()], 200)).toBe('full')
+test('pickChipMode normal mode when there is plenty of width', ($, on) => {
+  expect(pickChipMode([row()], 200)).toBe('normal')
 })
 
-test('pickChipMode degrades to no-label, then collapsed-finished, then icons-only as width shrinks', ($, on) => {
+test('pickChipMode degrades to collapsed-finished, then icons-only as width shrinks, never back up', ($, on) => {
   const rows = [
     row({ id: 'main' }),
     row({ id: 'a1', status: 'completed', subagentType: 'X' }),
@@ -59,10 +59,8 @@ test('pickChipMode degrades to no-label, then collapsed-finished, then icons-onl
     row({ id: 'a4', working: true, subagentType: 'W' }),
   ]
 
-  const modes = [200, 60, 30, 10].map(width => pickChipMode(rows, width))
-  // Width shrinking should only ever hold steady or degrade further, never
-  // jump back to a less-degraded mode.
-  const order: Record<string, number> = { full: 0, 'no-label': 1, 'collapsed-finished': 2, 'icons-only': 3 }
+  const modes = [200, 30, 20, 10].map(width => pickChipMode(rows, width))
+  const order: Record<string, number> = { normal: 0, 'collapsed-finished': 1, 'icons-only': 2 }
   for (let i = 1; i < modes.length; i++) {
     expect(order[modes[i] as string]).toBeGreaterThanOrEqual(order[modes[i - 1] as string])
   }
@@ -78,26 +76,38 @@ test('renderBand shows the main loop\'s avatar even with no subagents and no tod
   expect(findText(tree, '0/0')).toBe(false)
 })
 
-test('renderBand renders the todo fraction from a real progress value, riding along on the pulse row', ($, on) => {
+test('renderBand draws no label text next to the avatar — role and emotion are carried by the avatar itself', ($, on) => {
+  const rows = [row({ id: 'main' }), row({ id: 'a1', subagentType: 'brocode:swe-backend' })]
+  const tree = renderBand(rows, { done: 0, total: 0 }, IDLE, 200, 0, stubRaster)
+  expect(findText(tree, 'main')).toBe(false)
+  expect(findText(tree, 'developer')).toBe(false)
+})
+
+test('renderBand renders the todo fraction from a real progress value, riding along on the rule row', ($, on) => {
   const tree = renderBand([row()], { done: 2, total: 4 }, IDLE, 200, 0, stubRaster)
   expect(findText(tree, '2/4')).toBe(true)
 })
 
-test('renderBand always produces exactly two rows (chip row, pulse row) as its top-level Box children', ($, on) => {
+test('renderBand always produces exactly two rows (chip row, rule row) as its top-level Box children', ($, on) => {
   const tree = renderBand([row()], { done: 0, total: 0 }, IDLE, 200, 0, stubRaster)
   expect(tree.type).toBe('Box')
   expect(tree.children).toHaveLength(2)
+})
+
+test('renderBand draws no enclosing border box around the band — the colored rule row is the only "border"', ($, on) => {
+  const tree = renderBand([row()], { done: 0, total: 0 }, WORKING, 200, 0, stubRaster)
+  expect(tree.props?.borderStyle).toBeUndefined()
 })
 
 test('pickChipMode (totalWidth) accounts for the aggregate light glyph and its gap, not just the chips', ($, on) => {
   const plain = [row({ id: 'main' })]
   const withSignal = [row({ id: 'main', lastCheckDecision: 'ask' })]
   // Same chip layout either way; only the aggregate light differs (null vs
-  // yellow, +2 columns). At a width that fits the plain row's "full" chip
-  // but not the extra 2 columns the signal-bearing row's light costs, the
-  // signal-bearing row must degrade one stage further.
-  expect(pickChipMode(plain, 12)).toBe('full')
-  expect(pickChipMode(withSignal, 12)).toBe('no-label')
+  // yellow, +2 columns). At a width that fits the plain row's chip but not
+  // the extra 2 columns the signal-bearing row's light costs, the
+  // signal-bearing row must degrade.
+  expect(pickChipMode(plain, 8)).toBe('normal')
+  expect(pickChipMode(withSignal, 8)).toBe('icons-only')
 })
 
 test('pickChipMode badge width reflects the real "+N done" string length, degrading further when N is large', ($, on) => {
@@ -111,20 +121,20 @@ test('pickChipMode badge width reflects the real "+N done" string length, degrad
   expect(pickChipMode(rows, 17)).toBe('collapsed-finished')
 })
 
-test('renderPulseRow bar shrinks (not the fraction) as bodyColumns narrows, when idle with todos pending', ($, on) => {
+test('renderRuleRow bar shrinks (not the fraction) as bodyColumns narrows, when idle with todos pending', ($, on) => {
   const wide = renderBand([row()], { done: 3, total: 10 }, IDLE, 50, 0, stubRaster)
-  const narrow = renderBand([row()], { done: 3, total: 10 }, IDLE, 8, 0, stubRaster)
+  const narrow = renderBand([row()], { done: 3, total: 10 }, IDLE, 10, 0, stubRaster)
 
-  const widePulseRow = wide.children?.[1] as TreeLike
-  const narrowPulseRow = narrow.children?.[1] as TreeLike
+  const wideRuleRow = wide.children?.[1] as TreeLike
+  const narrowRuleRow = narrow.children?.[1] as TreeLike
 
-  const wideBar = (widePulseRow.children?.[0] as TreeLike).children?.[0] as string
-  const narrowBar = (narrowPulseRow.children?.[0] as TreeLike).children?.[0] as string
-  const narrowFraction = (narrowPulseRow.children?.[1] as TreeLike).children?.[0] as string
+  const wideRule = (wideRuleRow.children?.[0] as TreeLike).children?.[0] as string
+  const narrowRule = (narrowRuleRow.children?.[0] as TreeLike).children?.[0] as string
+  const narrowFraction = (narrowRuleRow.children?.[1] as TreeLike).children?.[0] as string
 
-  expect(narrowBar.length).toBeLessThan(wideBar.length)
-  // The number itself never shrinks or wraps — only the bar graphic does.
-  expect(narrowFraction).toBe(' 3/10')
+  expect(narrowRule.length).toBeLessThan(wideRule.length)
+  // The number itself never shrinks or wraps — only the rule graphic does.
+  expect(narrowFraction).toBe(' 3/10 ')
 })
 
 test('renderBand working subagents stay visible (their avatar still drawn) even when width forces collapsing finished ones', ($, on) => {
@@ -134,11 +144,9 @@ test('renderBand working subagents stay visible (their avatar still drawn) even 
     row({ id: 'a2', status: 'completed', subagentType: 'Z' }),
     row({ id: 'a3', working: true, subagentType: 'Y' }),
   ]
-  // renderBand reserves 4 columns for its own status-colored border before
-  // sizing the chips (see BORDER_OVERHEAD_COLS); at an outer width of 29
-  // the inner 25 columns land in 'collapsed-finished': a1/a2 (finished)
+  // At width 25 these 4 rows land in 'collapsed-finished': a1/a2 (finished)
   // collapse into "+2 done", a3 (still working) must stay visible.
-  const tree = renderBand(rows, { done: 0, total: 0 }, IDLE, 29, 0, stubRaster)
+  const tree = renderBand(rows, { done: 0, total: 0 }, IDLE, 25, 0, stubRaster)
   const keys = findRasterKeys(tree)
   expect(keys).toContain('avatar-main')
   expect(keys).toContain('avatar-a3')
@@ -153,32 +161,45 @@ test('renderBand draws one Raster avatar per visible agent, each keyed by its ag
   expect(findRasterKeys(tree)).toEqual(['avatar-main', 'avatar-a1'])
 })
 
-test('renderBand pulse row reads "working…" while a turn is in flight', ($, on) => {
+test('renderBand rule row reads "working…" while a turn is in flight', ($, on) => {
   const tree = renderBand([row()], { done: 0, total: 0 }, WORKING, 200, 0, stubRaster)
   expect(findText(tree, 'working')).toBe(true)
 })
 
-test('renderBand pulse row reads "waiting on you" while a tool call needs approval', ($, on) => {
+test('renderBand rule row reads "waiting on you" while a tool call needs approval', ($, on) => {
   const tree = renderBand([row()], { done: 0, total: 0 }, WAITING, 200, 0, stubRaster)
   expect(findText(tree, 'waiting on you')).toBe(true)
 })
 
-test('renderBand pulse row reads "done" right after a turn completes', ($, on) => {
+test('renderBand rule row reads "done" right after a turn completes', ($, on) => {
   const tree = renderBand([row()], { done: 0, total: 0 }, DONE, 200, 0, stubRaster)
   expect(findText(tree, 'done')).toBe(true)
 })
 
-test('renderBand wraps the whole band in a border whose color follows turn status, since the real prompt box border is theme-owned, not plugin-settable', ($, on) => {
+test('renderBand rule row color follows turn status, since the real prompt box border is theme-owned, not plugin-settable', ($, on) => {
   const todo = { done: 0, total: 0 }
   const idle = renderBand([row()], todo, IDLE, 200, 0, stubRaster)
   const working = renderBand([row()], todo, WORKING, 200, 0, stubRaster)
   const waiting = renderBand([row()], todo, WAITING, 200, 0, stubRaster)
   const done = renderBand([row()], todo, DONE, 200, 0, stubRaster)
 
-  expect(idle.props?.borderColor).toBe('gray')
-  expect(idle.props?.borderDimColor).toBe(true)
-  expect(working.props?.borderColor).toBe('cyan')
-  expect(waiting.props?.borderColor).toBe('yellow')
-  expect(done.props?.borderColor).toBe('green')
-  expect(working.props?.borderDimColor).toBe(false)
+  // The rule is a single colored Text for idle/waiting/done, but a Box of
+  // three colored segments while working (the sweep) — walk down to
+  // whichever one actually carries the `color` prop.
+  function firstColor(tree: unknown): unknown {
+    if (!tree || typeof tree !== 'object') return undefined
+    const node = tree as TreeLike
+    if (node.props?.color !== undefined) return node.props.color
+    for (const child of node.children ?? []) {
+      const found = firstColor(child)
+      if (found !== undefined) return found
+    }
+    return undefined
+  }
+  const ruleColorOf = (tree: Tree): unknown => firstColor((tree as { children?: Tree[] }).children?.[1])
+
+  expect(ruleColorOf(idle)).toBe('gray')
+  expect(ruleColorOf(working)).toBe('cyan')
+  expect(ruleColorOf(waiting)).toBe('yellow')
+  expect(ruleColorOf(done)).toBe('green')
 })
