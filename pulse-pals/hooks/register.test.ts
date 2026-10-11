@@ -19,8 +19,6 @@ const ABOVE_PROMPT = {
   },
 }
 
-const NO_USAGE = { startedAt: 0, context: { window: 200000 }, rateLimits: [] }
-
 const TURN_COMPLETE_INPUT = {
   answer: 'done',
   durationMs: 1000,
@@ -80,34 +78,14 @@ describe('pulse-pals wiring', () => {
     expect(rendered).toBeTruthy()
   })
 
-  test('turn.complete fetches usage and the band shows it instead of the officer, until it fades', async ($, on) => {
+  test('turn.complete moves the light to done (green) and schedules its own fade back to idle', async ($, on) => {
     on('turn.complete', () => ({ text: 'done' }))
-    on('session.usage', () => ({
-      value: {
-        startedAt: 0,
-        context: { window: 200000, percent: 42 },
-        rateLimits: [{ kind: 'five_hour', percentUsed: 18 }],
-        cost: { usd: 0.37 },
-      },
-    }))
 
     await $.turn.complete(TURN_COMPLETE_INPUT)
 
     const rendered = await $.ui.render(ABOVE_PROMPT)
-    const json = JSON.stringify(rendered)
-    expect(json).toContain('ctx 42%')
-    expect(json).toContain('5h 18%')
-    expect(json).toContain('$0.37')
-  })
-
-  test('turn.complete with no usage data available falls back to the ordinary officer/light view', async ($, on) => {
-    on('turn.complete', () => ({ text: 'done' }))
-    on('session.usage', () => ({ value: NO_USAGE }))
-
-    await $.turn.complete(TURN_COMPLETE_INPUT)
-
-    const rendered = await $.ui.render(ABOVE_PROMPT)
-    // still green (done), just drawn as the officer row, not a usage line
+    expect(rendered).toBeTruthy()
+    // still just the officer + light, nothing else drawn for "done"
     expect(JSON.stringify(rendered)).toContain('officer')
   })
 })

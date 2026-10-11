@@ -1,8 +1,7 @@
 /**
- * What the pulse bar (band.tsx's row 2) shows: not the todo list, but what
- * the turn is actually doing right now — working, waiting on an approval, or
- * just finished — so the row always has something to say, even on a session
- * with no todos at all.
+ * What the officer and traffic light show: not the todo list, but what the
+ * turn is actually doing right now — idle (napping), working, waiting on an
+ * approval, or just finished.
  */
 
 export type TurnStatus = 'idle' | 'working' | 'waiting' | 'done'

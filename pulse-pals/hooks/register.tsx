@@ -4,35 +4,13 @@ import { DONE_FADE_MS, applyTurnStatusEvent, initialTurnStatus } from './turn-st
 import type { TurnStatusState } from './turn-status'
 
 let turnState: TurnStatusState = initialTurnStatus()
-// Only meaningful while turnState.status === 'done': the usage line shown
-// in that window instead of the officer, cleared once it fades to idle.
-let usageText: string | null = null
 let animationStarted = false
 
 // How often the band redraws on its own, with nothing else happening, so
-// the working-state pulse actually animates instead of only updating on
-// the rare redraw a tool call happens to trigger.
+// the officer's accent pixel (sleeping "z", waiting alert) actually blinks
+// instead of only updating on the rare redraw a tool call happens to
+// trigger.
 const ANIMATION_TICK_MS = 500
-
-type UsageLike = {
-  context: { percent?: number }
-  rateLimits: ReadonlyArray<{ kind: string; percentUsed: number }>
-  cost?: { usd: number }
-}
-
-// "ctx 42% · 5h 18% · $0.37" — each piece only where the engine actually has
-// it (SessionUsage documents rateLimits as empty off a subscription and
-// cost as absent where the host keeps no ledger); null when none of it is
-// available at all, so the band falls back to the normal officer view
-// rather than showing an empty line.
-function formatUsage(usage: UsageLike): string | null {
-  const parts: string[] = []
-  if (usage.context.percent !== undefined) parts.push(`ctx ${Math.round(usage.context.percent)}%`)
-  const fiveHour = usage.rateLimits.find(r => r.kind === 'five_hour')
-  if (fiveHour) parts.push(`5h ${Math.round(fiveHour.percentUsed)}%`)
-  if (usage.cost) parts.push(`$${usage.cost.usd.toFixed(2)}`)
-  return parts.length > 0 ? parts.join(' · ') : null
-}
 
 export const register: Register = on => {
   // A real call actually starting to run is the only reliable sign an
@@ -72,17 +50,13 @@ export const register: Register = on => {
   on('turn.complete', async ($, e, next) => {
     const result = await next(e)
     turnState = applyTurnStatusEvent(turnState, { type: 'turnComplete', now: Date.now() })
-    // The plain call (no `breakdown`) is free — the status line's own
-    // figures, no token-count API calls.
-    usageText = formatUsage(await $.session.usage())
     $.ui.invalidate('ui.render')
 
-    // The band fades done -> idle (and the usage line clears with it) on
-    // its own after a few seconds, even with nothing else happening in the
-    // session to trigger a redraw.
+    // The light fades done -> idle (the officer back to napping) on its own
+    // after a few seconds, even with nothing else happening in the session
+    // to trigger a redraw.
     $.clock.after(DONE_FADE_MS, () => {
       turnState = applyTurnStatusEvent(turnState, { type: 'fade', now: Date.now() })
-      usageText = null
       $.ui.invalidate('ui.render')
     })
 
@@ -100,6 +74,6 @@ export const register: Register = on => {
     }
 
     const { Raster } = $.ui.resolve(e)
-    return renderBand(turnState, usageText, e.props.bodyColumns, Date.now(), Raster)
+    return renderBand(turnState, Date.now(), Raster)
   })
 }
