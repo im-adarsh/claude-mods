@@ -1,7 +1,7 @@
 {
   "name": "pulse-pals",
-  "version": "0.5.0",
-  "description": "One row above the prompt: a tiny clay-colored avatar per agent (role as a cap, emotion as eye color + corner spark) perched on a single colored rule line that doubles as status border and progress bar",
+  "version": "0.6.0",
+  "description": "One officer, one traffic light, one colored line above the prompt — napping idle, alert waiting on you, working, done — with a brief Claude usage report (context/rate-limit/cost) after each turn",
   "author": { "name": "Adarsh Kumar" },
   "keywords": ["agents", "subagents", "status", "band", "multi-agent", "pixel-art", "avatars"]
 }

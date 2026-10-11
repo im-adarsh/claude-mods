@@ -1,16 +1,12 @@
-import type { AgentRow } from './agents'
-import { aggregateLightOf, emotionOf, statusDotOf } from './derive'
-import { AGGREGATE_LIGHT_GLYPH, DOT_COLOR, LIGHT_COLOR, STATUS_DOT_GLYPH, roleOf } from './icons'
-import { CREATURE_COLUMNS, CREATURE_TEXT_ROWS, creatureGrid, creatureRasterCells, isBlinking } from './creature'
-import type { RoleKey } from './creature'
-import type { TodoProgress } from './todo-progress'
+import {
+  OFFICER_COLUMNS,
+  LIGHT_COLUMNS,
+  TEXT_ROWS,
+  encodeRasterCells,
+  lightGrid,
+  officerGrid,
+} from './officer'
 import type { TurnStatus, TurnStatusState } from './turn-status'
-
-// No label stage anymore — the avatar (color + cap + eyes) carries role and
-// emotion on its own; a role NAME beside it was the "weird name on its
-// side" nobody wanted. 'normal' shows every agent's avatar; narrower widths
-// collapse finished ones, then drop the dot too.
-export type ChipMode = 'normal' | 'collapsed-finished' | 'icons-only'
 
 export type Tree = {
   type: 'Box' | 'Text' | 'Raster'
@@ -18,7 +14,7 @@ export type Tree = {
   children?: Array<Tree | string>
 }
 
-// RasterProps as creature.ts encodes them; built by the real element
+// RasterProps as officer.ts encodes them; built by the real element
 // constructor at the call site ($.ui.resolve(e).Raster in register.tsx) so
 // this file stays a pure, $-free function the way the rest of band.tsx is —
 // tests inject a plain-object stub instead.
@@ -33,162 +29,82 @@ function text(content: string, props?: Tree['props']): Tree {
   return { type: 'Text', props, children: [content] }
 }
 
-function isFinished(row: AgentRow): boolean {
-  return row.status !== 'running'
-}
-
-function roleKeyOf(row: AgentRow): RoleKey {
-  return row.id === 'main' ? 'main' : roleOf(row.subagentType)
-}
-
-// A rough per-chip column estimate per mode, used only to decide which
-// mode fits — not the actual rendered width (the terminal does that).
-function estimatedChipWidth(mode: ChipMode): number {
-  const avatar = CREATURE_COLUMNS
-  const dot = mode === 'icons-only' ? 0 : 1
-  const gap = 1
-  return avatar + dot + gap
-}
-
-function totalChipsWidth(rows: readonly AgentRow[], mode: ChipMode): number {
-  const visible = mode === 'collapsed-finished' || mode === 'icons-only'
-    ? rows.filter(row => row.id === 'main' || !isFinished(row))
-    : rows
-  const chipsWidth = visible.length * estimatedChipWidth(mode)
-
-  const finishedCount = rows.filter(isFinished).length
-  const badge = finishedCount > 0 && (mode === 'collapsed-finished' || mode === 'icons-only')
-    ? `+${finishedCount} done`.length
-    : 0
-
-  return chipsWidth + badge
-}
-
-export function pickChipMode(rows: readonly AgentRow[], maxCols: number): ChipMode {
-  const stages: ChipMode[] = ['normal', 'collapsed-finished', 'icons-only']
-  for (const stage of stages) {
-    if (totalChipsWidth(rows, stage) <= maxCols) return stage
-  }
-  return 'icons-only' // narrowest stage always "fits" even if it visually clips
-}
-
-function renderChip(row: AgentRow, mode: ChipMode, now: number, Raster: RasterBuilder): Tree {
-  const emotion = emotionOf(row, now)
-  const dot = statusDotOf(row)
-  const grid = creatureGrid(roleKeyOf(row), emotion, isBlinking(row.id, now))
-  const avatar = Raster({
-    key: `avatar-${row.id}`,
-    columns: CREATURE_COLUMNS,
-    rows: CREATURE_TEXT_ROWS,
-    cells: creatureRasterCells(grid),
-  })
-
-  const children: Tree['children'] = [avatar]
-  if (mode !== 'icons-only') {
-    children.push(text(STATUS_DOT_GLYPH, { color: DOT_COLOR[dot], wrap: 'truncate-end' }))
-  }
-
-  return box({ flexDirection: 'row', alignItems: 'center', marginRight: 1 }, children)
-}
-
-// Every visible avatar plus the "+N done" badge, flat — not wrapped in its
-// own row, since the whole band is one row now: chips sit directly at the
-// rule line's left edge, like a little badge perched on the border, rather
-// than a separate row stacked above it.
-function renderChips(rows: readonly AgentRow[], mode: ChipMode, now: number, Raster: RasterBuilder): Tree[] {
-  const collapsing = mode === 'collapsed-finished' || mode === 'icons-only'
-  const visibleRows = collapsing
-    ? rows.filter(row => row.id === 'main' || !isFinished(row))
-    : rows
-  const finishedCount = rows.filter(isFinished).length
-
-  const chips = visibleRows.map(row => renderChip(row, mode, now, Raster))
-  if (collapsing && finishedCount > 0) {
-    chips.push(text(`+${finishedCount} done`, { dimColor: true, wrap: 'truncate-end' }))
-  }
-  return chips
-}
-
+// Not a boxed frame around the band (that read as a UI widget sitting on
+// top of the prompt) — one colored rule, doing double duty as both the
+// "border" and the status signal, same color the traffic light lights up:
+// red = waiting (stop, needs you), amber = working (in progress), green =
+// done, dim gray = idle.
 const RULE_CHAR = '─'
-const SWEEP_PERIOD_MS = 1400
-const SWEEP_SEGMENT_COLS = 6
-
-const STATUS_LABEL: Record<TurnStatus, string> = {
-  idle: '',
-  working: 'working…',
-  waiting: 'waiting on you',
-  done: 'done',
-}
-
 const STATUS_COLOR: Record<TurnStatus, string> = {
   idle: 'gray',
-  working: 'cyan',
-  waiting: 'yellow',
-  done: 'green',
+  working: '#e3b341',
+  waiting: '#f85149',
+  done: '#3fb950',
 }
 
-// Position of the sweeping segment: a ping-pong 0->1->0 so it reads as
-// scanning back and forth rather than snapping to the start each loop.
-function sweepStart(now: number, trackWidth: number, segment: number): number {
-  if (trackWidth <= segment) return 0
-  const t = (now % SWEEP_PERIOD_MS) / SWEEP_PERIOD_MS
-  const p = t < 0.5 ? t * 2 : (1 - t) * 2
-  return Math.round(p * (trackWidth - segment))
+function renderRule(status: TurnStatus, width: number): Tree {
+  return text(RULE_CHAR.repeat(Math.max(0, width)), {
+    color: STATUS_COLOR[status],
+    dimColor: status === 'idle',
+  })
 }
 
-function statusLabel(turn: TurnStatusState, todo: TodoProgress): string {
-  const base = STATUS_LABEL[turn.status]
-  if (todo.total === 0) return base
-  const fraction = `${todo.done}/${todo.total}`
-  return base ? `${base} · ${fraction}` : fraction
-}
+// 1 column each side's gap, between the officer, the light and the rule.
+const GAP_COLS = 1
 
-// The "border": not a boxed frame around the band (that read as a UI widget
-// sitting on top of the prompt), just this rule — a colored line doing
-// double duty as both the status border and the progress bar. While
-// working, a brighter segment sweeps across it.
-function renderRule(turn: TurnStatusState, ruleWidth: number, now: number): Tree {
-  const color = STATUS_COLOR[turn.status]
-  if (turn.status === 'working') {
-    const segment = Math.min(SWEEP_SEGMENT_COLS, ruleWidth)
-    const start = sweepStart(now, ruleWidth, segment)
-    const tail = Math.max(0, ruleWidth - start - segment)
-    return box({ flexDirection: 'row' }, [
-      text(RULE_CHAR.repeat(start), { color, dimColor: true }),
-      text(RULE_CHAR.repeat(segment), { color }),
-      text(RULE_CHAR.repeat(tail), { color, dimColor: true }),
-    ])
-  }
-  return text(RULE_CHAR.repeat(ruleWidth), { color, dimColor: turn.status === 'idle' })
-}
-
-export function renderBand(
-  rows: readonly AgentRow[],
-  todo: TodoProgress,
+export function renderOfficerRow(
   turn: TurnStatusState,
   maxCols: number,
   now: number,
   Raster: RasterBuilder,
 ): Tree {
-  const label = statusLabel(turn, todo)
-  const labelText = label ? ` ${label} ` : ''
-  const light = aggregateLightOf(rows)
-  // +1 gap before the glyph, same as the old aggregate-light spacing.
-  const lightWidth = light ? 2 : 0
-  const reserved = labelText.length + lightWidth
+  const pulse = Math.floor(now / 500) % 2 === 0
 
-  const mode = pickChipMode(rows, Math.max(0, maxCols - reserved))
-  const chips = renderChips(rows, mode, now, Raster)
-  const chipsWidth = totalChipsWidth(rows, mode)
-  const ruleWidth = Math.max(0, maxCols - chipsWidth - reserved)
+  const officer = Raster({
+    key: 'officer',
+    columns: OFFICER_COLUMNS,
+    rows: TEXT_ROWS,
+    cells: encodeRasterCells(officerGrid(turn.status, pulse), OFFICER_COLUMNS),
+  })
+  const light = Raster({
+    key: 'light',
+    columns: LIGHT_COLUMNS,
+    rows: TEXT_ROWS,
+    cells: encodeRasterCells(lightGrid(turn.status), LIGHT_COLUMNS),
+  })
 
-  const children: Tree['children'] = [...chips, renderRule(turn, ruleWidth, now)]
-  if (labelText) {
-    children.push(text(labelText, { color: STATUS_COLOR[turn.status], wrap: 'truncate-end' }))
+  const reserved = OFFICER_COLUMNS + GAP_COLS + LIGHT_COLUMNS + GAP_COLS
+  const ruleWidth = maxCols - reserved
+
+  return box({ flexDirection: 'row', alignItems: 'center' }, [
+    box({ marginRight: GAP_COLS }, [officer]),
+    box({ marginRight: GAP_COLS }, [light]),
+    renderRule(turn.status, ruleWidth),
+  ])
+}
+
+// Once in a while (right after a turn finishes, during the same window the
+// rule is briefly solid green) the row shows the usage report instead of
+// the officer — see register.tsx's turn.complete handler.
+export function renderUsageRow(usageText: string, maxCols: number): Tree {
+  const label = ` ${usageText} `
+  const ruleWidth = maxCols - label.length
+
+  return box({ flexDirection: 'row', alignItems: 'center' }, [
+    renderRule('done', ruleWidth),
+    text(label, { color: STATUS_COLOR.done, wrap: 'truncate-end' }),
+  ])
+}
+
+export function renderBand(
+  turn: TurnStatusState,
+  usageText: string | null,
+  maxCols: number,
+  now: number,
+  Raster: RasterBuilder,
+): Tree {
+  if (turn.status === 'done' && usageText) {
+    return renderUsageRow(usageText, maxCols)
   }
-  if (light) {
-    children.push(text(AGGREGATE_LIGHT_GLYPH, { color: LIGHT_COLOR[light] }))
-  }
-
-  return box({ flexDirection: 'row', alignItems: 'center' }, children)
+  return renderOfficerRow(turn, maxCols, now, Raster)
 }
