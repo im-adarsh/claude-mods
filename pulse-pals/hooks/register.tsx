@@ -61,7 +61,7 @@ export const register: Register = on => {
     // than drawing over it.
     if (e.props.hasSurvey) return next(e)
 
-    const { Image } = $.ui.resolve(e)
-    return renderBand(turnState, Image)
+    const { Raster } = $.ui.resolve(e)
+    return renderBand(turnState, Raster)
   })
 }

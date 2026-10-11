@@ -9,10 +9,10 @@ avatar design before that.
 One row, singular — not one chip per agent, so there's no "how many fit"
 problem at any width:
 
-- **An officer** (hand-drawn bitmap PNG, drawn with `Image`, see "Why a
-  real image" below). Napping (eyes closed, soft smile) while idle —
-  nothing to do; normal face while working; wide alert eyes while waiting
-  on your approval; a big smile when done.
+- **An officer** (a Raster of real terminal cells, sampled from hand-drawn
+  art — see "Why a sampled Raster" below). Napping (eyes closed, soft
+  smile) while idle — nothing to do; normal face while working; wide alert
+  eyes while waiting on your approval; a big smile when done.
 - **A traffic light** beside it, same art style: amber lit while working,
   red while waiting on you, green when done, nothing lit while idle.
 
@@ -39,26 +39,30 @@ size. Going singular (one officer, one light, representing the turn as a
 whole) sidesteps the problem entirely: fixed width regardless of whether
 the session has one agent or ten.
 
-## Why a real image, not flat terminal blocks
+## Why a sampled Raster, not an embedded image
 
-An earlier revision drew the officer and light as a `Raster` — flat
-ANSI/truecolor cells, real rectangles only, no circles or shading. It
-renders identically on any terminal with color support, no
-graphics-protocol dependency — but at the handful of cells a band above
-the prompt can spare, it never read as more than colored blocks, and that
-gap only grew clearer side by side with a detailed mockup.
+A revision in between drew the officer and light as a real bitmap PNG via
+the `Image` element — true art (cap brim, badge, star, eyebrows, cheeks),
+hand-drawn with a Python/PIL script. But `Image` only paints over cells on
+a handful of terminals (kitty, Ghostty, iTerm2, WezTerm, foot) — not Warp,
+not most terminals — and the plugin SDK gives a plugin no way to detect
+whether the current terminal is one of them, so there's no way to draw
+`Image` only where it will actually show: everywhere else it silently
+fell back to dim `alt` text, and that fallback was most people's entire
+experience of this mod. Claude Code's own startup logo settles this by a
+different route: colored block characters (`Raster`), not an embedded
+image — the same technique renders identically on any terminal with color
+support, no graphics-protocol dependency.
 
-This revision draws both as real bitmap PNGs instead, via `Image`
-(hand-drawn with rounded shapes — cap brim, badge, star, eyebrows, cheeks —
-in a Python/PIL script; not an AI-generated or 3D-rendered image, which is
-out of reach without an image-generation tool, but a real picture rather
-than a 20-pixel grid). The tradeoff: `Image` only paints over cells on
-terminals with an image protocol (kitty, Ghostty, iTerm2, WezTerm, foot);
-everywhere else it draws its `alt` text, dim, in the same place — plain
-words ("officer waiting on your approval", "red light") instead of no
-signal at all. Like the `Raster` it replaced, the art is fixed RGB
-pixels baked into the PNG, so it doesn't adapt to light/dark mode the way
-styled text does.
+So this revision keeps the detail and drops the gamble: the same
+hand-drawn art is downsampled (alpha-premultiplied Lanczos resize) into a
+much finer `Raster` grid than the first flat-block attempt's 5x4 pixels —
+11x12 for the officer, 5x12 for the light, in `officer-pixels.ts` — real
+colors sampled from the real art, packed two pixel rows per terminal row
+via the half-block glyph trick (`raster.ts`). It reads far closer to the
+actual art than 20 flat pixels ever did, and renders everywhere the
+startup logo does. Like `Image`, the baked-in colors don't adapt to
+light/dark mode the way styled text does.
 
 ## Install
 

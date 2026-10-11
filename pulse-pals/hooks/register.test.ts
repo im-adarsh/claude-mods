@@ -4,6 +4,12 @@
 // real typed calls on $ ($.ui.render(...), $.tool.call(...)), with on(...)
 // used to stub whatever answers beneath this plugin's hooks.
 import { describe, expect, test } from 'claude-code/testing'
+import { LIGHT_COLUMNS, LIGHT_GRID, OFFICER_COLUMNS, OFFICER_GRID, PIXEL_ROWS } from './officer-pixels'
+import { encodeRasterCells } from './raster'
+
+const idleLightCells = encodeRasterCells(LIGHT_GRID.idle, LIGHT_COLUMNS, PIXEL_ROWS)
+const waitingLightCells = encodeRasterCells(LIGHT_GRID.waiting, LIGHT_COLUMNS, PIXEL_ROWS)
+const doneOfficerCells = encodeRasterCells(OFFICER_GRID.done, OFFICER_COLUMNS, PIXEL_ROWS)
 
 const ABOVE_PROMPT = {
   surface: 'terminal' as const,
@@ -48,7 +54,8 @@ describe('pulse-pals wiring', () => {
     await $.tool.check({ tool: 'Read', input: { file_path: 'package.json' } })
 
     const rendered = await $.ui.render(ABOVE_PROMPT)
-    expect(JSON.stringify(rendered)).not.toContain('waiting') // the waiting officer/light alt text
+    expect(JSON.stringify(rendered)).not.toContain(waitingLightCells)
+    expect(JSON.stringify(rendered)).toContain(idleLightCells)
   })
 
   test('ui.render yields to a survey holding the band instead of drawing over it', async ($, on) => {
@@ -85,7 +92,8 @@ describe('pulse-pals wiring', () => {
 
     const rendered = await $.ui.render(ABOVE_PROMPT)
     expect(rendered).toBeTruthy()
-    // still just the officer + light, nothing else drawn for "done"
-    expect(JSON.stringify(rendered)).toContain('officer')
+    // the officer's "done" picture, specifically — still just the officer +
+    // light, nothing else drawn for "done"
+    expect(JSON.stringify(rendered)).toContain(doneOfficerCells)
   })
 })

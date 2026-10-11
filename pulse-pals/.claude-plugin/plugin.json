@@ -1,6 +1,6 @@
 {
   "name": "pulse-pals",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "One officer and a traffic light above the prompt, nothing else — napping idle, alert waiting on you, working, done",
   "author": { "name": "Adarsh Kumar" },
   "keywords": ["agents", "subagents", "status", "band", "multi-agent", "pixel-art", "avatars"]
