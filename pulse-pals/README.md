@@ -6,24 +6,28 @@ Formerly `agent-status-band`.
 
 ## What it shows
 
-**Row 1 — agent chips:** one little pixel-art creature per agent, plus its
-label and status dot when there's room. Each creature is real ANSI pixel
-art drawn as colored terminal cells (a `Raster`, not an image file — see
-"Why pixel art as text" below), 7 columns wide by 3 text rows tall (the
-half-block trick doubles vertical resolution, so it's a 7×6 logical pixel
-grid).
+A status-colored border frames the whole band, sitting flush above the
+prompt box — the closest a plugin can get to recoloring the input box's own
+border, which is a theme value (`promptBorder`), not something a hook can
+set per render.
 
-- **Role** is the creature's color and topper: a gold crown for the main
-  loop, a little antenna for developers, a flower for designers, a check
-  for reviewers, a monocle for researchers, antennae for testers, a flag
-  for planners, a plain dot for anything unrecognized (see `hooks/creature.ts`
-  for the full table). The label text still spells the role out too.
-- **Emotion** (sad / frustrated / happy / exhausted / excited / focused) is
-  baked into the same face — different eyes and mouth, not a separate
-  glyph — and is derived from the agent's own status, call volume and
+**Row 1 — agent chips:** one tiny avatar per agent, plus its label and
+status dot when there's room. Every avatar is "a little Claude" — the face
+is always Anthropic's own clay accent color, one text row tall (a `Raster`
+of real terminal cells, not an image file — see "Why pixel art as text"
+below), 5 columns wide. What varies:
+
+- **Role** is a small colored cap on top: a cream crown for the main loop,
+  a single blue dot for developers, pink side-dots for designers, green
+  side-dots for reviewers, a teal dot for researchers, an amber dot for
+  testers, a lavender bar for planners, no cap at all for anything
+  unrecognized (see `hooks/creature.ts` for the full table). The label text
+  still spells the role out too.
+- **Emotion** (sad / frustrated / happy / exhausted / excited / focused)
+  colors the eyes, derived from the agent's own status, call volume and
   runtime (`hooks/derive.ts`), never random.
-- Every creature blinks every few seconds, out of phase per agent so a row
-  of several chips never blinks in unison.
+- Every avatar blinks every few seconds, out of phase per agent so a row of
+  several chips never blinks in unison.
 - The status dot is green while running, dim/gray when completed, red if
   failed or killed. The main-loop chip has no completed/failed state of its
   own (it isn't a dispatched task the way a subagent is), so its dot
@@ -35,18 +39,20 @@ grid).
   it only ever shows at the aggregate level, never on an individual dot.
 
 **Row 2 — the pulse bar:** a hairline (~2px, drawn with the one-eighth
-block character) that always has something to say: `idle`, `working…`
-(a segment sweeps back and forth), `waiting on you` (solid amber the
-moment a tool call needs approval), or `done` (solid green, fading back to
-idle a few seconds after the turn completes). The todo fraction, read from
-the transcript's latest `TodoWrite` call, rides along on the same row when
+block character) that always has something to say: idle, `working…` (a
+segment sweeps back and forth), `waiting on you` (solid amber the moment a
+tool call needs approval), or `done` (solid green, fading back to idle a
+few seconds after the turn completes). The todo fraction, read from the
+transcript's latest `TodoWrite` call, rides along on the same row when
 there are any — it no longer sits alone as a bare `0/0` on a session with
-no todos.
+no todos. The border around the whole band tracks the same status (gray
+and dim while idle, cyan while working, yellow while waiting, green when
+done), so the signal reads even before you look at row 2's text.
 
 No minimum terminal width — the band degrades (dropping labels, then
 collapsing finished agents into a `+N done` badge, then icons-only, which
-still keeps each creature's color/accessory/emotion) rather than refusing
-to render or asking for a wider terminal.
+still keeps each avatar's cap color and emotion) rather than refusing to
+render or asking for a wider terminal.
 
 ## Why pixel art as text
 
@@ -56,8 +62,11 @@ nothing (well, dim `alt` text) everywhere else. `Raster` cells are plain
 glyph + foreground + background — ordinary ANSI/truecolor text — so the
 same pixel art renders identically on any terminal with color support, no
 graphics-protocol dependency. It's also why role and emotion are drawn as
-colors and shapes rather than Unicode dingbats: a previous version used a
-rare glyph for emotion that tofu'd in thinner terminal fonts.
+colors rather than Unicode dingbats: an earlier version used a rare glyph
+for emotion that tofu'd in thinner terminal fonts, and an earlier
+pixel-avatar revision was a 7×6, 3-text-row creature that read as too
+heavy/blocky in a real terminal — this one is deliberately a single text
+row.
 
 ## Install
 

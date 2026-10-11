@@ -194,6 +194,21 @@ function renderPulseRow(turn: TurnStatusState, todo: TodoProgress, bodyColumns: 
   return box({ flexDirection: 'row' }, [bar, text(labelText, labelProps)])
 }
 
+// A plugin can't recolor Claude Code's own prompt-box border (that's a
+// theme value — `promptBorder` — not something a hook sets per render); the
+// closest honest equivalent is a border of our own, sitting flush above it,
+// that changes with the turn.
+const BORDER_STYLE = 'round'
+const BORDER_COLOR: Record<TurnStatus, string> = {
+  idle: 'gray',
+  working: 'cyan',
+  waiting: 'yellow',
+  done: 'green',
+}
+
+// 1 column of border plus 1 of padding on each side.
+const BORDER_OVERHEAD_COLS = 4
+
 export function renderBand(
   rows: readonly AgentRow[],
   todo: TodoProgress,
@@ -202,9 +217,17 @@ export function renderBand(
   now: number,
   Raster: RasterBuilder,
 ): Tree {
-  const mode = pickChipMode(rows, maxCols)
-  return box({ flexDirection: 'column' }, [
-    renderChipRow(rows, mode, now, Raster),
-    renderPulseRow(turn, todo, maxCols, now),
-  ])
+  const innerCols = Math.max(0, maxCols - BORDER_OVERHEAD_COLS)
+  const mode = pickChipMode(rows, innerCols)
+
+  return box(
+    {
+      flexDirection: 'column',
+      borderStyle: BORDER_STYLE,
+      borderColor: BORDER_COLOR[turn.status],
+      borderDimColor: turn.status === 'idle',
+      paddingX: 1,
+    },
+    [renderChipRow(rows, mode, now, Raster), renderPulseRow(turn, todo, innerCols, now)],
+  )
 }

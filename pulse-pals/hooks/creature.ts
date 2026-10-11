@@ -2,138 +2,98 @@ import type { Emotion } from './derive'
 import type { Role } from './icons'
 
 /**
- * Pixel-art avatars, drawn as real terminal cells (a `Raster`), not an image
- * file: `Image` only paints over cells on kitty/Ghostty/iTerm2/WezTerm/foot
- * (see this file's header note in band.tsx) — `Raster`'s glyph-plus-two-colors
- * cells are plain ANSI/truecolor text, so they render the same everywhere a
- * terminal does 24-bit color, with no graphics-protocol dependency.
+ * Tiny avatars, drawn as real terminal cells (a `Raster`), not an image
+ * file: `Image` only paints over cells on kitty/Ghostty/iTerm2/WezTerm/foot,
+ * nothing everywhere else. `Raster`'s glyph-plus-two-colors cells are plain
+ * ANSI/truecolor text, so they render the same everywhere a terminal does
+ * 24-bit color, with no graphics-protocol dependency.
  *
- * Each pixel is a half of a cell: codepoint '▀' (upper half block) paints its
- * foreground as the top pixel and its background as the bottom one, doubling
- * vertical resolution — a 7×6 logical pixel grid becomes 7 columns × 3
- * terminal rows.
+ * Every agent is "a little Claude": the face is always Anthropic's own clay
+ * accent, the same one regardless of role — what differs is a small colored
+ * cap on top (role) and the eye color (emotion). One pixel row, packed into
+ * one terminal cell via the half-block glyph ('▀': foreground = the cap
+ * pixel, background = the face pixel) — a single text row, not a multi-row
+ * creature, so it sits inline with the label instead of towering over it.
  */
 
 export type Pixel = string | null // a '#rrggbb' hex color, or null for "see-through" (terminal's own background)
 
 export type RoleKey = Role | 'main'
 
-const COLS = 7
-const ROWS = 6
+const COLS = 5
 export const CREATURE_COLUMNS = COLS
-export const CREATURE_TEXT_ROWS = ROWS / 2
+export const CREATURE_TEXT_ROWS = 1
 
-const EYE = '#2b2320'
+// Anthropic's clay accent — the one color every avatar shares, so the whole
+// row reads as "Claude" first and role/emotion second.
+const FACE = '#d97757'
+const EYE_DEFAULT = '#2b2320'
 
-type Accessory = 'crown' | 'antenna' | 'flower' | 'check' | 'glass' | 'antennae' | 'flag' | 'dot'
+type CapShape = ReadonlyArray<number> // which of columns 0-4 the cap paints
 
-type RoleTheme = { body: string; foot: string; accessory: Accessory; accent: string }
+const CAP_SHAPE: Record<RoleKey, CapShape> = {
+  main: [1, 2, 3],
+  developer: [2],
+  designer: [1, 3],
+  reviewer: [1, 3],
+  researcher: [3],
+  tester: [1],
+  planner: [1, 2],
+  generic: [],
+}
 
-// Body color + topper is the role's "species"; kept in sync with the design
-// canvas's pixel-creature mockup (docs/superpowers/specs).
-const ROLE_THEME: Record<RoleKey, RoleTheme> = {
-  main: { body: '#d8b36b', foot: '#a8824a', accessory: 'crown', accent: '#f4e4b8' },
-  developer: { body: '#8fa6b8', foot: '#66808f', accessory: 'antenna', accent: '#cfe8f2' },
-  designer: { body: '#e8a9c0', foot: '#c97e9b', accessory: 'flower', accent: '#f6d4e2' },
-  reviewer: { body: '#8fbf8a', foot: '#5f9a5c', accessory: 'check', accent: '#d7f0d0' },
-  researcher: { body: '#7fb8b0', foot: '#548c85', accessory: 'glass', accent: '#cdede8' },
-  tester: { body: '#c98a52', foot: '#9c6436', accessory: 'antennae', accent: '#3a2c1c' },
-  planner: { body: '#b6a6d9', foot: '#8a77b8', accessory: 'flag', accent: '#e7def5' },
-  generic: { body: '#a8a296', foot: '#7d786d', accessory: 'dot', accent: '#d6d2c6' },
+const CAP_COLOR: Record<RoleKey, string> = {
+  main: '#f4e4b8',
+  developer: '#8fa6b8',
+  designer: '#e8a9c0',
+  reviewer: '#8fbf8a',
+  researcher: '#7fb8b0',
+  tester: '#c98a52',
+  planner: '#b6a6d9',
+  generic: '#a8a296',
+}
+
+const EYE_COLOR: Record<Emotion, string> = {
+  happy: '#f4e4b8',
+  excited: '#ffffff',
+  focused: EYE_DEFAULT,
+  exhausted: '#6b6356',
+  frustrated: '#c85c3a',
+  sad: '#6fa8d8',
 }
 
 function emptyGrid(): Pixel[][] {
-  return Array.from({ length: ROWS }, () => Array<Pixel>(COLS).fill(null))
+  return [Array<Pixel>(COLS).fill(null), Array<Pixel>(COLS).fill(FACE)]
 }
 
-function paintBody(g: Pixel[][], body: string, foot: string): void {
-  for (let r = 1; r <= 4; r++) {
-    for (let c = 1; c <= 5; c++) {
-      const row = g[r]
-      if (row) row[c] = body
-    }
-  }
-  const feet = g[5]
-  if (feet) {
-    feet[1] = foot
-    feet[2] = foot
-    feet[4] = foot
-    feet[5] = foot
-  }
+function paintCap(g: Pixel[][], role: RoleKey): void {
+  const top = g[0]
+  if (!top) return
+  for (const col of CAP_SHAPE[role]) top[col] = CAP_COLOR[role]
 }
 
-function set(g: Pixel[][], r: number, c: number, color: Pixel): void {
-  const row = g[r]
-  if (row) row[c] = color
+// Eyes sit at columns 1 and 3 of the face row; column 2 ("the nose") and the
+// two edge columns stay plain face color.
+function paintEyes(g: Pixel[][], emotion: Emotion): void {
+  const face = g[1]
+  if (!face) return
+  const color = EYE_COLOR[emotion]
+  face[1] = color
+  face[3] = color
 }
 
-function paintAccessory(g: Pixel[][], kind: Accessory, accent: string): void {
-  switch (kind) {
-    case 'crown':
-      set(g, 0, 2, accent); set(g, 0, 3, accent); set(g, 0, 4, accent)
-      break
-    case 'antenna':
-      set(g, 0, 3, accent); set(g, 1, 3, accent)
-      break
-    case 'flower':
-      set(g, 0, 2, accent); set(g, 0, 4, accent); set(g, 0, 3, '#c9507e')
-      break
-    case 'check':
-      set(g, 0, 2, accent); set(g, 0, 4, accent)
-      break
-    case 'glass':
-      set(g, 0, 5, accent); set(g, 1, 5, accent)
-      break
-    case 'antennae':
-      set(g, 0, 2, accent); set(g, 0, 4, accent)
-      break
-    case 'flag':
-      set(g, 0, 2, accent); set(g, 0, 3, accent); set(g, 0, 4, accent)
-      break
-    case 'dot':
-      set(g, 0, 3, accent)
-      break
-  }
-}
-
-function paintEmotion(g: Pixel[][], emotion: Emotion, body: string): void {
-  switch (emotion) {
-    case 'happy':
-      set(g, 2, 2, EYE); set(g, 2, 4, EYE); set(g, 4, 3, '#f4e4b8')
-      break
-    case 'excited':
-      set(g, 2, 2, '#ffffff'); set(g, 2, 4, '#ffffff'); set(g, 0, 0, '#ffd866'); set(g, 0, 6, '#ffd866')
-      break
-    case 'focused':
-      set(g, 2, 2, EYE); set(g, 2, 4, EYE)
-      break
-    case 'exhausted':
-      set(g, 2, 2, '#6b6356'); set(g, 2, 4, '#6b6356')
-      break
-    case 'frustrated':
-      set(g, 1, 2, EYE); set(g, 1, 4, EYE); set(g, 2, 2, body); set(g, 2, 4, body); set(g, 4, 3, EYE)
-      break
-    case 'sad':
-      set(g, 2, 2, EYE); set(g, 2, 4, EYE); set(g, 3, 2, '#6fa8d8'); set(g, 4, 3, EYE)
-      break
-  }
-}
-
-// Closing the eyes overrides whatever the emotion painted there, leaving any
-// brow/mouth accent (which lives on different rows) alone — a blink reads as
-// a brief animation on top of the current mood, not a mood change.
-function closeEyes(g: Pixel[][], body: string): void {
-  set(g, 2, 1, EYE); set(g, 2, 5, EYE)
-  set(g, 2, 2, body); set(g, 2, 4, body)
+function closeEyes(g: Pixel[][]): void {
+  const face = g[1]
+  if (!face) return
+  face[1] = FACE
+  face[3] = FACE
 }
 
 export function creatureGrid(role: RoleKey, emotion: Emotion, blinking: boolean): Pixel[][] {
-  const theme = ROLE_THEME[role]
   const g = emptyGrid()
-  paintBody(g, theme.body, theme.foot)
-  paintAccessory(g, theme.accessory, theme.accent)
-  paintEmotion(g, emotion, theme.body)
-  if (blinking) closeEyes(g, theme.body)
+  paintCap(g, role)
+  paintEyes(g, emotion)
+  if (blinking) closeEyes(g)
   return g
 }
 
@@ -179,21 +139,19 @@ function toBase64(bytes: Uint8Array): string {
   return out
 }
 
-// Encodes a 7x6 pixel grid as RasterProps['cells']: row-major base64 of
+// Encodes the 5x2 pixel grid as RasterProps['cells']: row-major base64 of
 // columns*rows little-endian u32 [codePoint, foreground, background]
-// triplets, packing two pixel rows into one text row via the half-block
+// triplets, packing both pixel rows into one text row via the half-block
 // glyph (see this file's header comment).
 export function creatureRasterCells(grid: Pixel[][]): string {
   const words = new Uint32Array(COLS * CREATURE_TEXT_ROWS * 3)
+  const top = grid[0]
+  const bottom = grid[1]
   let i = 0
-  for (let textRow = 0; textRow < CREATURE_TEXT_ROWS; textRow++) {
-    const top = grid[textRow * 2]
-    const bottom = grid[textRow * 2 + 1]
-    for (let c = 0; c < COLS; c++) {
-      words[i++] = UPPER_HALF_BLOCK
-      words[i++] = colorWord(top ? top[c] ?? null : null)
-      words[i++] = colorWord(bottom ? bottom[c] ?? null : null)
-    }
+  for (let c = 0; c < COLS; c++) {
+    words[i++] = UPPER_HALF_BLOCK
+    words[i++] = colorWord(top ? top[c] ?? null : null)
+    words[i++] = colorWord(bottom ? bottom[c] ?? null : null)
   }
   return toBase64(new Uint8Array(words.buffer))
 }

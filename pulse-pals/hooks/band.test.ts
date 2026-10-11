@@ -96,8 +96,8 @@ test('pickChipMode (totalWidth) accounts for the aggregate light glyph and its g
   // yellow, +2 columns). At a width that fits the plain row's "full" chip
   // but not the extra 2 columns the signal-bearing row's light costs, the
   // signal-bearing row must degrade one stage further.
-  expect(pickChipMode(plain, 15)).toBe('full')
-  expect(pickChipMode(withSignal, 15)).toBe('no-label')
+  expect(pickChipMode(plain, 12)).toBe('full')
+  expect(pickChipMode(withSignal, 12)).toBe('no-label')
 })
 
 test('pickChipMode badge width reflects the real "+N done" string length, degrading further when N is large', ($, on) => {
@@ -105,10 +105,10 @@ test('pickChipMode badge width reflects the real "+N done" string length, degrad
     row({ id: 'main' }),
     ...Array.from({ length: 15 }, (_, i) => row({ id: `a${i}`, status: 'completed' as const, subagentType: 'X' })),
   ]
-  // '+15 done' is 8 columns. At width 18 even collapsed-finished's single
-  // visible chip (main) plus the badge and light don't fit; at 19 they do.
-  expect(pickChipMode(rows, 18)).toBe('icons-only')
-  expect(pickChipMode(rows, 19)).toBe('collapsed-finished')
+  // '+15 done' is 8 columns. At width 16 even collapsed-finished's single
+  // visible chip (main) plus the badge and light don't fit; at 17 they do.
+  expect(pickChipMode(rows, 16)).toBe('icons-only')
+  expect(pickChipMode(rows, 17)).toBe('collapsed-finished')
 })
 
 test('renderPulseRow bar shrinks (not the fraction) as bodyColumns narrows, when idle with todos pending', ($, on) => {
@@ -131,19 +131,20 @@ test('renderBand working subagents stay visible (their avatar still drawn) even 
   const rows = [
     row({ id: 'main' }),
     row({ id: 'a1', status: 'completed', subagentType: 'X' }),
-    row({ id: 'a2', working: true, subagentType: 'Y' }),
+    row({ id: 'a2', status: 'completed', subagentType: 'Z' }),
+    row({ id: 'a3', working: true, subagentType: 'Y' }),
   ]
-  // Narrow enough to force 'collapsed-finished' (see the width math in
-  // pickChipMode's own tests): a1 (finished) collapses into "+1 done", a2
-  // (still working) must stay visible with its own avatar.
-  expect(pickChipMode(rows, 27)).toBe('collapsed-finished')
-
-  const tree = renderBand(rows, { done: 0, total: 0 }, IDLE, 27, 0, stubRaster)
+  // renderBand reserves 4 columns for its own status-colored border before
+  // sizing the chips (see BORDER_OVERHEAD_COLS); at an outer width of 29
+  // the inner 25 columns land in 'collapsed-finished': a1/a2 (finished)
+  // collapse into "+2 done", a3 (still working) must stay visible.
+  const tree = renderBand(rows, { done: 0, total: 0 }, IDLE, 29, 0, stubRaster)
   const keys = findRasterKeys(tree)
   expect(keys).toContain('avatar-main')
-  expect(keys).toContain('avatar-a2')
+  expect(keys).toContain('avatar-a3')
   expect(keys).not.toContain('avatar-a1')
-  expect(findText(tree, '+1 done')).toBe(true)
+  expect(keys).not.toContain('avatar-a2')
+  expect(findText(tree, '+2 done')).toBe(true)
 })
 
 test('renderBand draws one Raster avatar per visible agent, each keyed by its agent id', ($, on) => {
@@ -165,4 +166,19 @@ test('renderBand pulse row reads "waiting on you" while a tool call needs approv
 test('renderBand pulse row reads "done" right after a turn completes', ($, on) => {
   const tree = renderBand([row()], { done: 0, total: 0 }, DONE, 200, 0, stubRaster)
   expect(findText(tree, 'done')).toBe(true)
+})
+
+test('renderBand wraps the whole band in a border whose color follows turn status, since the real prompt box border is theme-owned, not plugin-settable', ($, on) => {
+  const todo = { done: 0, total: 0 }
+  const idle = renderBand([row()], todo, IDLE, 200, 0, stubRaster)
+  const working = renderBand([row()], todo, WORKING, 200, 0, stubRaster)
+  const waiting = renderBand([row()], todo, WAITING, 200, 0, stubRaster)
+  const done = renderBand([row()], todo, DONE, 200, 0, stubRaster)
+
+  expect(idle.props?.borderColor).toBe('gray')
+  expect(idle.props?.borderDimColor).toBe(true)
+  expect(working.props?.borderColor).toBe('cyan')
+  expect(waiting.props?.borderColor).toBe('yellow')
+  expect(done.props?.borderColor).toBe('green')
+  expect(working.props?.borderDimColor).toBe(false)
 })
