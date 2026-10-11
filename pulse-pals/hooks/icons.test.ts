@@ -1,5 +1,5 @@
 import { test, expect } from 'claude-code/testing'
-import { roleOf, ROLE_ICON, EMOTION_GLYPH } from './icons'
+import { roleOf } from './icons'
 
 test('roleOf maps known brocode developer agents to the developer role', ($, on) => {
   expect(roleOf('brocode:swe-backend')).toBe('developer')
@@ -36,24 +36,4 @@ test('roleOf an unrecognized subagentType falls back to generic, never throws', 
 
 test('roleOf null (main loop) also falls back to generic rather than throwing', ($, on) => {
   expect(roleOf(null)).toBe('generic')
-})
-
-test('icon tables cover every role and emotion with a non-empty glyph: ROLE_ICON has a non-empty entry for every Role', ($, on) => {
-  const roles: Array<keyof typeof ROLE_ICON> = [
-    'developer', 'designer', 'reviewer', 'researcher', 'tester', 'planner', 'generic',
-  ]
-  for (const role of roles) {
-    expect(ROLE_ICON[role]).toBeTruthy()
-    expect(ROLE_ICON[role].length).toBe(1)
-  }
-})
-
-test('icon tables cover every role and emotion with a non-empty glyph: EMOTION_GLYPH has a non-empty entry for every Emotion', ($, on) => {
-  const emotions: Array<keyof typeof EMOTION_GLYPH> = [
-    'sad', 'frustrated', 'happy', 'exhausted', 'excited', 'focused',
-  ]
-  for (const emotion of emotions) {
-    expect(EMOTION_GLYPH[emotion]).toBeTruthy()
-    expect(EMOTION_GLYPH[emotion].length).toBe(1)
-  }
 })

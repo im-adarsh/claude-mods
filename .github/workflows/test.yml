@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        mod: [goland-skin, diagram-preview]
+        mod: [goland-skin, diagram-preview, pulse-pals]
     steps:
       - uses: actions/checkout@v4
 

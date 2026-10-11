@@ -1,32 +1,11 @@
-import type { Emotion, StatusDot, TrafficLight } from './derive'
+import type { StatusDot, TrafficLight } from './derive'
 
 export type Role = 'developer' | 'designer' | 'reviewer' | 'researcher' | 'tester' | 'planner' | 'generic'
 
-export const MAIN_LOOP_ICON = '◆'
-
-export const ROLE_ICON: Record<Role, string> = {
-  // '⌨' (keyboard) and '⚗' (alembic) can render as emoji or double-width in
-  // some terminal/font combinations, against the project's no-emoji,
-  // single-cell rule. '◈' and '◎' are plain text-presentation glyphs from
-  // the same geometric/dingbat blocks as the rest of this table.
-  developer: '◈',
-  designer: '✎',
-  reviewer: '✓',
-  researcher: '⌕',
-  tester: '◎',
-  planner: '☰',
-  generic: '◇',
-}
-
-export const EMOTION_GLYPH: Record<Emotion, string> = {
-  sad: '⌢',
-  frustrated: '≠',
-  happy: '⌣',
-  exhausted: '≈',
-  excited: '✦',
-  focused: '·',
-}
-
+// Role used to be drawn as a standalone dingbat (and emotion as a second
+// one) beside the chip — creature.ts's pixel avatar now carries both (a
+// role-colored body + topper, emotion-driven eyes), so those glyph tables
+// are gone; only the status dot and aggregate light stay plain text.
 export const STATUS_DOT_GLYPH = '●'
 export const AGGREGATE_LIGHT_GLYPH = '◉'
 

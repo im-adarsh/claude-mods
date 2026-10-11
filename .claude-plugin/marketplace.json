@@ -22,12 +22,12 @@
       "tags": ["mermaid", "excalidraw", "diagram", "artifact", "preview"]
     },
     {
-      "name": "agent-status-band",
-      "description": "A two-line band above the prompt showing every agent in the session: role icons, status, emotion, and an aggregate traffic light",
-      "source": "./agent-status-band",
-      "version": "0.1.0",
+      "name": "pulse-pals",
+      "description": "A band above the prompt with a little pixel-art creature per agent — role as color and accessory, emotion baked into the face — plus a hairline pulse bar showing working/waiting/done",
+      "source": "./pulse-pals",
+      "version": "0.2.0",
       "category": "productivity",
-      "tags": ["agents", "subagents", "status", "band", "multi-agent"]
+      "tags": ["agents", "subagents", "status", "band", "multi-agent", "pixel-art", "avatars"]
     }
   ]
 }

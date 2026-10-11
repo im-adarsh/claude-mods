@@ -3,8 +3,11 @@ import { applyEvent, emptyState } from './agents'
 import type { AgentsState, AgentState } from './agents'
 import { renderBand } from './band'
 import { todoProgressOf } from './todo-progress'
+import { DONE_FADE_MS, applyTurnStatusEvent, initialTurnStatus } from './turn-status'
+import type { TurnStatusState } from './turn-status'
 
 let state: AgentsState = emptyState(Date.now())
+let turnState: TurnStatusState = initialTurnStatus()
 
 // AgentInfo.status (from $.agent.list()) is documented as "running,
 // completed, failed, killed, or another of the engine's task statuses" — it
@@ -47,6 +50,9 @@ export const register: Register = on => {
   on('tool.call', async ($, e, next) => {
     const agentId = e.agentId ?? null
     state = applyEvent(state, { type: 'toolCallStart', agentId, now: Date.now() })
+    // A real call actually starting to run is the only reliable sign an
+    // earlier "ask" was granted — see turn-status.ts's checkResolved case.
+    turnState = applyTurnStatusEvent(turnState, { type: 'checkResolved', now: Date.now() })
     $.ui.invalidate('ui.render')
 
     try {
@@ -72,10 +78,15 @@ export const register: Register = on => {
     // `$.tool.check(...)` just to ask a hypothetical question. Skip
     // recording entirely for the latter — otherwise a query with no real
     // call behind it could paint the main-loop row (and the aggregate
-    // light) red/yellow for a decision nothing is actually waiting on.
+    // light) red/yellow for a decision nothing is actually waiting on, and
+    // could flip the pulse bar to "waiting on you" with nothing pending.
     if (e.tool_use_id) {
       const agentId: string | null = null
       state = applyEvent(state, { type: 'checkDecision', agentId, decision: result.decision })
+      const now = Date.now()
+      turnState = result.decision === 'ask'
+        ? applyTurnStatusEvent(turnState, { type: 'checkAsk', now })
+        : applyTurnStatusEvent(turnState, { type: 'checkResolved', now })
       $.ui.invalidate('ui.render')
     }
     return result
@@ -90,6 +101,7 @@ export const register: Register = on => {
     const now = Date.now()
     state = applyEvent(state, { type: 'resetMain', now })
     state = applyEvent(state, { type: 'clearCheckDecision' })
+    turnState = applyTurnStatusEvent(turnState, { type: 'promptSubmit', now })
     $.ui.invalidate('ui.render')
     return next(e)
   })
@@ -100,6 +112,16 @@ export const register: Register = on => {
     // idle; without a resync here, nothing else would ever notice until an
     // unrelated agent.spawn/tool.call happened to fire one (Important 4).
     await resync($)
+
+    turnState = applyTurnStatusEvent(turnState, { type: 'turnComplete', now: Date.now() })
+    $.ui.invalidate('ui.render')
+    // The pulse bar fades done -> idle on its own after a few seconds, even
+    // with nothing else happening in the session to trigger a redraw.
+    $.clock.after(DONE_FADE_MS, () => {
+      turnState = applyTurnStatusEvent(turnState, { type: 'fade', now: Date.now() })
+      $.ui.invalidate('ui.render')
+    })
+
     return result
   })
 
@@ -114,7 +136,8 @@ export const register: Register = on => {
     // view) live under e.props, not flat on e — the ui.render envelope is
     // { surface, component, requestId, viewport?, props }.
     const maxCols = e.props.bodyColumns
+    const { Raster } = $.ui.resolve(e)
 
-    return renderBand(state.rows, progress, maxCols, Date.now())
+    return renderBand(state.rows, progress, turnState, maxCols, Date.now(), Raster)
   })
 }
