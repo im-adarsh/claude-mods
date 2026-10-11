@@ -32,9 +32,18 @@ function findRasterKeys(tree: unknown): string[] {
   return [...own, ...nested]
 }
 
-test('renderOfficerRow always draws both the officer and the traffic light, keyed, nothing else', ($, on) => {
+test('renderOfficerRow always draws both the officer and the traffic light, keyed', ($, on) => {
   const tree = renderOfficerRow(IDLE, 0, stubRaster)
   expect(findRasterKeys(tree)).toEqual(['officer', 'light'])
+})
+
+test('renderOfficerRow wraps the officer+light in a bordered box, colored by status', ($, on) => {
+  expect(renderOfficerRow(IDLE, 0, stubRaster).props?.borderColor).toBe('inactive')
+  expect(renderOfficerRow(IDLE, 0, stubRaster).props?.borderDimColor).toBe(true)
+  expect(renderOfficerRow(WORKING, 0, stubRaster).props?.borderColor).toBe('warning')
+  expect(renderOfficerRow(WAITING, 0, stubRaster).props?.borderColor).toBe('error')
+  expect(renderOfficerRow(DONE, 0, stubRaster).props?.borderColor).toBe('success')
+  expect(renderOfficerRow(WORKING, 0, stubRaster).props?.borderDimColor).toBe(false)
 })
 
 test('renderBand falls back to the officer row when idle (no usage text to show yet)', ($, on) => {
@@ -60,16 +69,9 @@ test('renderBand does not show the usage row outside the done status, even if us
   expect(findRasterKeys(tree)).toEqual(['officer', 'light'])
 })
 
-test('renderUsageRow uses the "success" theme color, not a fixed hex — the one piece of the band that can follow the person\'s actual theme', ($, on) => {
+test('renderUsageRow is boxed in the same "done" bordered-box style the officer row uses, text colored by the theme\'s success key', ($, on) => {
   const tree: Tree = renderUsageRow('ctx 10%')
-  expect(tree.type).toBe('Text')
-  expect(tree.props?.color).toBe('success')
-})
-
-test('renderOfficerRow draws nothing beyond the officer and the light — no line, no border, no status text', ($, on) => {
-  const tree = renderOfficerRow(WORKING, 0, stubRaster)
   expect(tree.type).toBe('Box')
-  expect(tree.children).toHaveLength(2)
-  expect(findText(tree, 'working')).toBe(false)
-  expect(findText(tree, '─')).toBe(false)
+  expect(tree.props?.borderColor).toBe('success')
+  expect(findText(tree, 'ctx 10%')).toBe(true)
 })

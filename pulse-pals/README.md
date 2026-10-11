@@ -1,9 +1,8 @@
 # Pulse Pals
 
-A band above Claude Code's prompt box — one officer, one traffic light.
-Formerly `agent-status-band`, and formerly a per-agent avatar design, and a
-version with a colored line, before that; see "Why no line, no border"
-below for why those are gone.
+A band above Claude Code's prompt box — one officer and a traffic light,
+boxed in a border colored by what's happening. Formerly `agent-status-band`,
+and formerly a per-agent avatar design before that.
 
 ## What it shows
 
@@ -19,46 +18,43 @@ problem at any width:
   so it's reliably visible, not just on an incidental redraw.
 - **A traffic light** beside it (1 column, same height): amber lit while
   working, red while waiting on you, green when done, nothing lit while
-  idle. That's it — the officer and the light are the whole signal.
+  idle.
+- **A border**, box-drawn around the two of them, colored the same as the
+  light: dim gray idle, amber working, red waiting, green done. It's a
+  theme color (`warning`/`error`/`success`/`inactive`), not a fixed hex, so
+  it follows the person's actual light/dark theme the way the rest of
+  Claude Code's UI does.
+
+This can't be the *real* prompt box's own border — see "Why this isn't the
+real prompt box's border" — so it's a small bordered box of its own,
+sitting directly above it.
 
 **Once in a while — a usage report.** For a few seconds right after each
-turn finishes, before it fades back to idle, the row swaps to a compact
-readout instead of the officer: `ctx 42% · 5h 18% · $0.37` — context
-window fill, the account's 5-hour rate-limit window, and the session's
-cost so far, read from `$.session.usage()` (the same figures the status
-line has; the plain call is free, no token-count API requests). Whatever
-the engine doesn't have is left out rather than shown as a blank — on a
-host with no cost ledger it's just `ctx 42% · 5h 18%`, and if none of it
-is available at all the row stays the ordinary officer view instead of
-showing something empty. This is the one piece of the band drawn as
-theme-aware text (the `success` color), not a fixed hex, so it follows the
-person's actual theme — see "Why no line, no border" for why the
-officer/light can't do the same.
+turn finishes, before it fades back to idle, the same bordered box shows a
+compact readout instead of the officer: `ctx 42% · 5h 18% · $0.37` —
+context window fill, the account's 5-hour rate-limit window, and the
+session's cost so far, read from `$.session.usage()` (the same figures the
+status line has; the plain call is free, no token-count API requests).
+Whatever the engine doesn't have is left out rather than shown as a blank —
+on a host with no cost ledger it's just `ctx 42% · 5h 18%`, and if none of
+it is available at all the box stays the ordinary officer view instead of
+showing something empty.
 
-## Why no line, no border
+## Why this isn't the real prompt box's border
 
-Two things were tried and dropped:
-
-- **A full bordered box** around the officer read as an extra floating UI
-  widget sitting on the prompt, not part of it.
-- **A colored rule line** (replacing the box) was meant to be the closest
-  reachable stand-in for "the prompt box's border changes color" — but it
-  kept reading as a stray, unexplained line next to the officer rather than
-  as a border, and no amount of restyling fixed that confusion. So it's
-  gone too: the officer and the light alone carry the signal now.
-
-To be explicit about the wall underneath all of this: **the real prompt
-box's own border cannot be recolored by a plugin.** Its color is a theme
-value (`promptBorder`), set by the person's theme, not something any hook
-can touch per render. Nothing built here, past or present, changes the
-actual box you type in — everything is a separate strip drawn above it.
+**The real prompt box's own border cannot be recolored by a plugin.** Its
+color is a theme value (`promptBorder`), set by the person's theme, not
+something any hook can touch per render. What's drawn here is a separate
+small bordered box, sitting directly above the real one — the closest
+reachable approximation, not the thing itself. (A version without any
+border at all, and one with just a plain colored line instead of a box,
+were both tried in between and dropped — the box reads better than either.)
 
 It's also why the officer and light can't adapt to light/dark mode the way
-the usage text does: `Raster` cells are fixed RGB pixels, not styled text,
-so there's no theme key for them to follow — same limitation an image file
-would have. Plain `Text` (like the usage report) can and does use the
-theme's own color names instead of hardcoded hex, which is the one
-dark/light-aware piece of this mod.
+the border and usage text do: `Raster` cells are fixed RGB pixels, not
+styled text, so there's no theme key for them to follow — same limitation
+an image file would have. The border and the usage report, both plain
+`Box`/`Text`, use the theme's own color names instead of hardcoded hex.
 
 ## Why it's one officer, not one per agent
 

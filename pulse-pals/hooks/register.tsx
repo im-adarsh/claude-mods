@@ -10,9 +10,8 @@ let usageText: string | null = null
 let animationStarted = false
 
 // How often the band redraws on its own, with nothing else happening, so
-// the officer's accent pixel (sleeping "z", waiting alert) actually blinks
-// instead of only updating on the rare redraw a tool call happens to
-// trigger.
+// the working-state pulse actually animates instead of only updating on
+// the rare redraw a tool call happens to trigger.
 const ANIMATION_TICK_MS = 500
 
 type UsageLike = {

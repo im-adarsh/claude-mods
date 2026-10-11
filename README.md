@@ -6,7 +6,7 @@ A collection of small Claude Code mods and themes.
 |---|---|
 | [`goland-skin`](goland-skin) | JetBrains GoLand Darcula colors for Claude Code, plus a matching Warp terminal theme and an optional skin for [claude-skins](https://github.com/hellosverre/claude-skins). `/goland on\|off\|status` switches it live |
 | [`diagram-preview`](diagram-preview) | Preview Mermaid and Excalidraw diagrams as Artifacts, from pasted source or a file |
-| [`pulse-pals`](pulse-pals) | A band above the prompt: one officer + traffic light + colored line (napping idle, alert waiting, working, done), with a brief Claude usage report after each turn |
+| [`pulse-pals`](pulse-pals) | A band above the prompt: one officer + traffic light boxed in a theme-colored border (napping idle, alert waiting, working, done), with a brief Claude usage report after each turn |
 
 ## Adding a mod
 
