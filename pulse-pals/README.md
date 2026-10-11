@@ -9,16 +9,12 @@ avatar design before that.
 One row, singular — not one chip per agent, so there's no "how many fit"
 problem at any width:
 
-- **An officer** (5 columns, 2 text rows, flat colored blocks — a `Raster`
-  of real terminal cells, not an image file, see "Why flat blocks" below).
-  Cap, badge and baton stay constant; only the eyes and one accent pixel
-  change: closed eyes + a pale blue "z" accent while idle (nothing to do —
-  napping), normal open eyes while working, wide white alert eyes + a red
-  accent while waiting on your approval. The accent pixel blinks on a timer
-  so it's reliably visible, not just on an incidental redraw.
-- **A traffic light** beside it (1 column, same height): amber lit while
-  working, red while waiting on you, green when done, nothing lit while
-  idle.
+- **An officer** (hand-drawn bitmap PNG, drawn with `Image`, see "Why a
+  real image" below). Napping (eyes closed, soft smile) while idle —
+  nothing to do; normal face while working; wide alert eyes while waiting
+  on your approval; a big smile when done.
+- **A traffic light** beside it, same art style: amber lit while working,
+  red while waiting on you, green when done, nothing lit while idle.
 
 That's the whole band. No box, no border, no status text, no usage
 report, no per-agent breakdown — those were all tried, in various
@@ -43,16 +39,26 @@ size. Going singular (one officer, one light, representing the turn as a
 whole) sidesteps the problem entirely: fixed width regardless of whether
 the session has one agent or ten.
 
-## Why flat blocks, no shading
+## Why a real image, not flat terminal blocks
 
-Real image protocols (`Image`, sixel/kitty-style) only paint over cells on
-a handful of terminals (kitty, Ghostty, iTerm2, WezTerm, foot) and draw
-nothing (well, dim `alt` text) everywhere else. `Raster` cells are plain
-glyph + foreground + background — ordinary ANSI/truecolor text, flat
-rectangles only, no circles or shading — so it renders identically on any
-terminal with color support, no graphics-protocol dependency. It's also
-why the officer can't adapt to light/dark mode the way styled text does:
-`Raster` cells are fixed RGB pixels, not theme-aware.
+An earlier revision drew the officer and light as a `Raster` — flat
+ANSI/truecolor cells, real rectangles only, no circles or shading. It
+renders identically on any terminal with color support, no
+graphics-protocol dependency — but at the handful of cells a band above
+the prompt can spare, it never read as more than colored blocks, and that
+gap only grew clearer side by side with a detailed mockup.
+
+This revision draws both as real bitmap PNGs instead, via `Image`
+(hand-drawn with rounded shapes — cap brim, badge, star, eyebrows, cheeks —
+in a Python/PIL script; not an AI-generated or 3D-rendered image, which is
+out of reach without an image-generation tool, but a real picture rather
+than a 20-pixel grid). The tradeoff: `Image` only paints over cells on
+terminals with an image protocol (kitty, Ghostty, iTerm2, WezTerm, foot);
+everywhere else it draws its `alt` text, dim, in the same place — plain
+words ("officer waiting on your approval", "red light") instead of no
+signal at all. Like the `Raster` it replaced, the art is fixed RGB
+pixels baked into the PNG, so it doesn't adapt to light/dark mode the way
+styled text does.
 
 ## Install
 

@@ -4,13 +4,6 @@ import { DONE_FADE_MS, applyTurnStatusEvent, initialTurnStatus } from './turn-st
 import type { TurnStatusState } from './turn-status'
 
 let turnState: TurnStatusState = initialTurnStatus()
-let animationStarted = false
-
-// How often the band redraws on its own, with nothing else happening, so
-// the officer's accent pixel (sleeping "z", waiting alert) actually blinks
-// instead of only updating on the rare redraw a tool call happens to
-// trigger.
-const ANIMATION_TICK_MS = 500
 
 export const register: Register = on => {
   // A real call actually starting to run is the only reliable sign an
@@ -68,12 +61,7 @@ export const register: Register = on => {
     // than drawing over it.
     if (e.props.hasSurvey) return next(e)
 
-    if (!animationStarted) {
-      animationStarted = true
-      $.clock.every(ANIMATION_TICK_MS, () => $.ui.invalidate('ui.render'))
-    }
-
-    const { Raster } = $.ui.resolve(e)
-    return renderBand(turnState, Date.now(), Raster)
+    const { Image } = $.ui.resolve(e)
+    return renderBand(turnState, Image)
   })
 }

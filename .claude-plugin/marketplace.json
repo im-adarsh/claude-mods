@@ -25,7 +25,7 @@
       "name": "pulse-pals",
       "description": "One officer and a traffic light above the prompt, nothing else — napping idle, alert waiting on you, working, done",
       "source": "./pulse-pals",
-      "version": "0.8.0",
+      "version": "0.9.0",
       "category": "productivity",
       "tags": ["agents", "subagents", "status", "band", "multi-agent", "pixel-art", "avatars"]
     }

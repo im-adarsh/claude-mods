@@ -48,7 +48,7 @@ describe('pulse-pals wiring', () => {
     await $.tool.check({ tool: 'Read', input: { file_path: 'package.json' } })
 
     const rendered = await $.ui.render(ABOVE_PROMPT)
-    expect(JSON.stringify(rendered)).not.toContain('f85149') // the waiting/red color
+    expect(JSON.stringify(rendered)).not.toContain('waiting') // the waiting officer/light alt text
   })
 
   test('ui.render yields to a survey holding the band instead of drawing over it', async ($, on) => {
