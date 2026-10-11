@@ -1,7 +1,7 @@
 {
   "name": "pulse-pals",
-  "version": "0.2.0",
-  "description": "A band above the prompt with a little pixel-art creature per agent — role as color and accessory, emotion baked into the face — plus a hairline pulse bar showing working/waiting/done",
+  "version": "0.3.0",
+  "description": "A band above the prompt with a tiny clay-colored avatar per agent — role as a small cap, emotion as eye color — inside a border that tracks turn status, plus a hairline pulse bar for working/waiting/done",
   "author": { "name": "Adarsh Kumar" },
   "keywords": ["agents", "subagents", "status", "band", "multi-agent", "pixel-art", "avatars"]
 }
