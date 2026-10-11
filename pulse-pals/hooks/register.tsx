@@ -101,6 +101,6 @@ export const register: Register = on => {
     }
 
     const { Raster } = $.ui.resolve(e)
-    return renderBand(turnState, usageText, e.props.bodyColumns, Date.now(), Raster)
+    return renderBand(turnState, usageText, Date.now(), Raster)
   })
 }
