@@ -62,6 +62,16 @@ const EYE_COLOR: Record<Emotion, string> = {
   sad: '#6fa8d8',
 }
 
+// A little more personality than eye color alone: the two corners of the
+// cap row (columns 0 and 4) are never touched by a cap, so the two most
+// expressive emotions get a corner spark there — a spark for excited (the
+// "idea" feeling), a flare for frustrated (the "annoyed" feeling) — the
+// rest stay plain, so these two read as distinctly more animated.
+const ACCENT_COLOR: Partial<Record<Emotion, string>> = {
+  excited: '#ffd866',
+  frustrated: '#c85c3a',
+}
+
 function emptyGrid(): Pixel[][] {
   return [Array<Pixel>(COLS).fill(null), Array<Pixel>(COLS).fill(FACE)]
 }
@@ -82,6 +92,15 @@ function paintEyes(g: Pixel[][], emotion: Emotion): void {
   face[3] = color
 }
 
+function paintAccent(g: Pixel[][], emotion: Emotion): void {
+  const accent = ACCENT_COLOR[emotion]
+  if (!accent) return
+  const top = g[0]
+  if (!top) return
+  if (emotion === 'excited') top[0] = accent
+  if (emotion === 'frustrated') top[4] = accent
+}
+
 function closeEyes(g: Pixel[][]): void {
   const face = g[1]
   if (!face) return
@@ -92,6 +111,7 @@ function closeEyes(g: Pixel[][]): void {
 export function creatureGrid(role: RoleKey, emotion: Emotion, blinking: boolean): Pixel[][] {
   const g = emptyGrid()
   paintCap(g, role)
+  paintAccent(g, emotion)
   paintEyes(g, emotion)
   if (blinking) closeEyes(g)
   return g

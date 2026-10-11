@@ -45,6 +45,26 @@ test('creatureGrid main gets a cap spanning all three middle columns, distinct f
   expect(developer[0]?.[3]).toBe(null)
 })
 
+test('creatureGrid excited and frustrated get an extra corner accent spark, in the cap row\'s otherwise-unused corners', ($, on) => {
+  const excited = creatureGrid('generic', 'excited', false)
+  const frustrated = creatureGrid('generic', 'frustrated', false)
+  const focused = creatureGrid('generic', 'focused', false)
+
+  expect(excited[0]?.[0]).not.toBe(null) // left corner spark
+  expect(frustrated[0]?.[4]).not.toBe(null) // right corner spark
+  // the plain/neutral emotions leave both corners untouched
+  expect(focused[0]?.[0]).toBe(null)
+  expect(focused[0]?.[4]).toBe(null)
+})
+
+test('creatureGrid an emotion\'s corner accent never collides with a role\'s cap — every role leaves columns 0 and 4 free', ($, on) => {
+  for (const role of ['main', 'developer', 'designer', 'reviewer', 'researcher', 'tester', 'planner', 'generic'] as const) {
+    const g = creatureGrid(role, 'focused', false)
+    expect(g[0]?.[0]).toBe(null)
+    expect(g[0]?.[4]).toBe(null)
+  }
+})
+
 test('creatureGrid two roles with the same cap shape still read as different roles via cap color', ($, on) => {
   const designer = creatureGrid('designer', 'focused', false)
   const reviewer = creatureGrid('reviewer', 'focused', false)

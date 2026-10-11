@@ -50,7 +50,7 @@ function estimatedChipWidth(mode: ChipMode): number {
   return avatar + dot + gap
 }
 
-function totalWidth(rows: readonly AgentRow[], mode: ChipMode): number {
+function totalChipsWidth(rows: readonly AgentRow[], mode: ChipMode): number {
   const visible = mode === 'collapsed-finished' || mode === 'icons-only'
     ? rows.filter(row => row.id === 'main' || !isFinished(row))
     : rows
@@ -61,19 +61,13 @@ function totalWidth(rows: readonly AgentRow[], mode: ChipMode): number {
     ? `+${finishedCount} done`.length
     : 0
 
-  // renderChipRow draws the aggregate light (when non-null) as a 1-column
-  // glyph plus a `justifyContent: 'space-between'` gap of 1 column between
-  // it and the chip row; both must count toward the estimate or a row can
-  // land 1-2 columns over budget right at a stage boundary.
-  const light = aggregateLightOf(rows) !== null ? 1 + 1 : 0
-
-  return chipsWidth + badge + light
+  return chipsWidth + badge
 }
 
 export function pickChipMode(rows: readonly AgentRow[], maxCols: number): ChipMode {
   const stages: ChipMode[] = ['normal', 'collapsed-finished', 'icons-only']
   for (const stage of stages) {
-    if (totalWidth(rows, stage) <= maxCols) return stage
+    if (totalChipsWidth(rows, stage) <= maxCols) return stage
   }
   return 'icons-only' // narrowest stage always "fits" even if it visually clips
 }
@@ -97,7 +91,11 @@ function renderChip(row: AgentRow, mode: ChipMode, now: number, Raster: RasterBu
   return box({ flexDirection: 'row', alignItems: 'center', marginRight: 1 }, children)
 }
 
-function renderChipRow(rows: readonly AgentRow[], mode: ChipMode, now: number, Raster: RasterBuilder): Tree {
+// Every visible avatar plus the "+N done" badge, flat — not wrapped in its
+// own row, since the whole band is one row now: chips sit directly at the
+// rule line's left edge, like a little badge perched on the border, rather
+// than a separate row stacked above it.
+function renderChips(rows: readonly AgentRow[], mode: ChipMode, now: number, Raster: RasterBuilder): Tree[] {
   const collapsing = mode === 'collapsed-finished' || mode === 'icons-only'
   const visibleRows = collapsing
     ? rows.filter(row => row.id === 'main' || !isFinished(row))
@@ -108,21 +106,9 @@ function renderChipRow(rows: readonly AgentRow[], mode: ChipMode, now: number, R
   if (collapsing && finishedCount > 0) {
     chips.push(text(`+${finishedCount} done`, { dimColor: true, wrap: 'truncate-end' }))
   }
-
-  const light = aggregateLightOf(rows)
-  const children: Tree['children'] = [box({ flexDirection: 'row', alignItems: 'center' }, chips)]
-  if (light) {
-    children.push(text(AGGREGATE_LIGHT_GLYPH, { color: LIGHT_COLOR[light] }))
-  }
-
-  return box({ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, children)
+  return chips
 }
 
-// The "border": not a boxed frame around the band (that read as a UI widget
-// sitting on top of the prompt), just this one colored rule, drawn with the
-// same box-drawing dash Claude Code's own dividers use. Its color is the
-// turn status; while working, a brighter segment sweeps across it, so the
-// line itself doubles as the progress bar rather than needing a second one.
 const RULE_CHAR = '─'
 const SWEEP_PERIOD_MS = 1400
 const SWEEP_SEGMENT_COLS = 6
@@ -157,29 +143,23 @@ function statusLabel(turn: TurnStatusState, todo: TodoProgress): string {
   return base ? `${base} · ${fraction}` : fraction
 }
 
-function renderRuleRow(turn: TurnStatusState, todo: TodoProgress, bodyColumns: number, now: number): Tree {
-  const label = statusLabel(turn, todo)
-  const labelText = label ? ` ${label} ` : ''
-  // Reserve room for the label first, same shrink-the-graphic-not-the-text
-  // approach as before: the rule is what gives way at narrow widths.
-  const ruleWidth = Math.max(0, bodyColumns - labelText.length)
+// The "border": not a boxed frame around the band (that read as a UI widget
+// sitting on top of the prompt), just this rule — a colored line doing
+// double duty as both the status border and the progress bar. While
+// working, a brighter segment sweeps across it.
+function renderRule(turn: TurnStatusState, ruleWidth: number, now: number): Tree {
   const color = STATUS_COLOR[turn.status]
-
-  let rule: Tree
   if (turn.status === 'working') {
     const segment = Math.min(SWEEP_SEGMENT_COLS, ruleWidth)
     const start = sweepStart(now, ruleWidth, segment)
     const tail = Math.max(0, ruleWidth - start - segment)
-    rule = box({ flexDirection: 'row' }, [
+    return box({ flexDirection: 'row' }, [
       text(RULE_CHAR.repeat(start), { color, dimColor: true }),
       text(RULE_CHAR.repeat(segment), { color }),
       text(RULE_CHAR.repeat(tail), { color, dimColor: true }),
     ])
-  } else {
-    rule = text(RULE_CHAR.repeat(ruleWidth), { color, dimColor: turn.status === 'idle' })
   }
-
-  return box({ flexDirection: 'row' }, [rule, text(labelText, { color, wrap: 'truncate-end' })])
+  return text(RULE_CHAR.repeat(ruleWidth), { color, dimColor: turn.status === 'idle' })
 }
 
 export function renderBand(
@@ -190,9 +170,25 @@ export function renderBand(
   now: number,
   Raster: RasterBuilder,
 ): Tree {
-  const mode = pickChipMode(rows, maxCols)
-  return box({ flexDirection: 'column' }, [
-    renderChipRow(rows, mode, now, Raster),
-    renderRuleRow(turn, todo, maxCols, now),
-  ])
+  const label = statusLabel(turn, todo)
+  const labelText = label ? ` ${label} ` : ''
+  const light = aggregateLightOf(rows)
+  // +1 gap before the glyph, same as the old aggregate-light spacing.
+  const lightWidth = light ? 2 : 0
+  const reserved = labelText.length + lightWidth
+
+  const mode = pickChipMode(rows, Math.max(0, maxCols - reserved))
+  const chips = renderChips(rows, mode, now, Raster)
+  const chipsWidth = totalChipsWidth(rows, mode)
+  const ruleWidth = Math.max(0, maxCols - chipsWidth - reserved)
+
+  const children: Tree['children'] = [...chips, renderRule(turn, ruleWidth, now)]
+  if (labelText) {
+    children.push(text(labelText, { color: STATUS_COLOR[turn.status], wrap: 'truncate-end' }))
+  }
+  if (light) {
+    children.push(text(AGGREGATE_LIGHT_GLYPH, { color: LIGHT_COLOR[light] }))
+  }
+
+  return box({ flexDirection: 'row', alignItems: 'center' }, children)
 }
